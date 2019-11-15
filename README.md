@@ -1,5 +1,5 @@
 # es100-wwvb-refclock
-Shared memory NTP reference clock for Everset es100 WWVB receiver
+Python test code and Shared memory NTP reference clock for Everset es100 WWVB receiver
 
 ## Description
 This repository contains software to interface with Everset es100 WWVB receiver. This receiver is dual-antenna software-defined radioclock which gets the timestamp code transmitted by NIST's WWVB radio station in Fort Collins, Colorado.
