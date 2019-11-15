@@ -2,11 +2,23 @@
 
 #
 # Simple python code to test ES100 WWVB receiver.
+#
 # This code has been developed and tested using Raspberry PI 3. Your mileage may vary.
 #
 # Copyright (C) 2019 Fio Cattaneo <fio@cattaneo.us>, All Rights Reserved.
 #
-# This code is released under dual GPLv2 / FreeBSD license, at your option.
+# This code is released under dual GPL Version 2 / FreeBSD license, at your option.
+#
+# This test code is fairly dumb and uses busy-waiting (with 2 millisecond sleep intervals).
+# The NTP refclock will be written in C and will use PPS timestamping for accuracy and efficiency.
+# However any improvement is not likely to be very high, given the jitter of WWVB reception.
+#
+#
+# TODO: issues to be fixed:
+# (A) The receiver can trigger an IRQ which simply indicates that RX was unsuccessful,
+#     and retry is pending. The current code simply treats this as a timeout and restarts reception.
+# (B) Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported,
+#     see datasheet for details.
 #
 
 import RPi.GPIO as GPIO
@@ -15,7 +27,7 @@ import time
 import sys
 
 #
-# the next five constants depend on which Raspberry PI's IC2BUS and GPIO pins the device is actually wired to.
+# The next five constants depend on which Raspberry PI's IC2BUS and GPIO pins the device is actually wired to.
 # FIXME: I2C CHANNEL 1 is pretty much hardcoded with current implementation.
 # probably not worth trying to do better.
 #

@@ -13,8 +13,14 @@ Two major functionalities need to be added to the best code before I start writi
 * Allow receiver to continue retry operation after being notified that current RX was unsucceful.
 * Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the first features somewhat moot.
 
+One major limitation of the test code is that it is quite dumb in that it simply polls the WWVB receiver every 2 milliseconds. The NTP reference clock implementation will make use of PPS timestamping for accuracy and efficiency. However actual improvements are likely to be fairly low due to the jitter of the signal itself, which is quite high.
+
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_dual_antennas.jpg)
 
+## TODO
+
+* The receiver can trigger an IRQ which simply indicates that RX was unsuccessful, and retry is pending. The current code simply treats this as a timeout and restarts reception.
+* Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported, see datasheet for details.
 
 ## Links
 
