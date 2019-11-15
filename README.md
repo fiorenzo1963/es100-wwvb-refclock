@@ -2,7 +2,7 @@
 Python test code and Shared memory NTP reference clock for Everset es100 WWVB receiver
 
 ## Description
-This repository contains software to interface with Everset es100 WWVB receiver. This receiver is dual-antenna software-defined radioclock which gets the timestamp code transmitted by NIST's WWVB radio station in Fort Collins, Colorado.
+This repository contains software to interface with Everset es100 WWVB receiver. This receiver is a dual-antenna software-defined radioclock which gets the timestamp code transmitted by NIST's WWVB 60 kHz radio station in Fort Collins, Colorado.
 The test code is written in Python for ease of use, developed and tested on Raspberry PI 3.
 
 Currently only the test code is implemented. Once it becomes feature complete I'll write the NTP SHM refclock driver based on the test code. Using python for test code allows for quick prototyping and can be easily copied and reused by anyne who is not familiar with C.
@@ -21,12 +21,23 @@ One major limitation of the test code is that it is quite dumb in that it simply
 
 * The receiver can trigger an IRQ which simply indicates that RX was unsuccessful, and retry is pending. The current code simply treats this as a timeout and restarts reception.
 * Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported, see datasheet for details.
+* Actually implement shared memory NTP refclock.
 
 ## Links
 
-* Datasheet http://everset-tech.com/wp-content/uploads/2014/11/ES100DataSheetver0p97.pdf
-* North America distributor https://www.universal-solder.ca/product/everset-es100-cob-wwvb-60khz-bpsk-receiver-kit-with-2-antennas/
-* On Amazon https://www.amazon.com/gp/product/B07PDW1QPX/ref=ppx_yo_dt_b_asin_title_o09_s00?ie=UTF8&psc=1
+* EVERSET
+	* Datasheet http://everset-tech.com/wp-content/uploads/2014/11/ES100DataSheetver0p97.pdf
+	* North America Distributor https://www.universal-solder.ca/product/everset-es100-cob-wwvb-60khz-bpsk-receiver-kit-with-2-antennas/
+	* Amazon https://www.amazon.com/gp/product/B07PDW1QPX/ref=ppx_yo_dt_b_asin_title_o09_s00?ie=UTF8&psc=1
+	* https://time-nuts.febo.narkive.com/gETMuwcR/new-wwvb-bpsk-dev-board
+	* https://www.kb6nu.com/building-a-wwvb-receiver-episode-2/
+* WWVB general information
+	* WWVB Wikipedia https://en.wikipedia.org/wiki/WWVB
+	* NIST's WWVB Page https://www.nist.gov/pml/time-and-frequency-division/radio-stations/wwvb
+* Links of interest and related projects
+	* https://www.ion.org/publications/abstract.cfm?articleID=15622
+	* http://www.leapsecond.com/pages/sony-wwvb/
+	* https://www.raspberrypi.org/forums/viewtopic.php?t=20968
 
 ## Hardware Description and Setup
 
