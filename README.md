@@ -13,6 +13,7 @@ Two major functionalities need to be added to the best code before I start writi
 * Allow receiver to continue retry operation after being notified that current RX was unsucceful.
 * Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the first features somewhat moot.
 
+
 ## Links
 
 * Datasheet http://everset-tech.com/wp-content/uploads/2014/11/ES100DataSheetver0p97.pdf
@@ -46,5 +47,6 @@ ES100 WWVB PIN          WIRE COLOR
 4 = SCK                 YELLOW
 5 = SDA                 GREEN
 6 = EN                  ORANGE
+```
 * The wire colors are of course completely arbitrary. I didn't want to break apart the ribbon wire, so I ended up with GND being red. Oh well.
 * Before starting the test program, make sure that the I2C bus is enabled and running. I have set a 9600 baud rate for the I2C clock, although quite likely higher baud rates can be used.
