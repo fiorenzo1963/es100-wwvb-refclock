@@ -7,7 +7,7 @@ The test code is written in Python for ease of use, developed and tested on Rasp
 
 Currently only the test code is implemented. Once it becomes feature complete I'll write the NTP SHM refclock driver based on the test code. Using python for test code allows for quick prototyping and can be easily copied and reused by anyne who is not familiar with C.
 
-The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna.
+The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C baud rate.
 
 Two major functionalities need to be added to the best code before I start writing the NTP reference clock:
 * Allow receiver to continue retry operation after being notified that current RX was unsucceful.
@@ -22,6 +22,10 @@ One major limitation of the test code is that it is quite dumb in that it simply
 * The receiver can trigger an IRQ which simply indicates that RX was unsuccessful, and retry is pending. The current code simply treats this as a timeout and restarts reception.
 * Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported, see datasheet for details.
 * Actually implement shared memory NTP refclock.
+
+## CHANGELOG
+
+* See CHANGELOG file
 
 ## Links
 
@@ -204,3 +208,43 @@ In my current test installation I placed the two antennas at 45 degrees of each 
 0.614881515503 msecs
 -24.9390602112 msecs
 ```
+
+## Metrics
+
+The sample code now also emits statistical information in a machine parseable format, useful to make Allan Plots and other kinds of statistical inference. See source code for Simply greb for RX_WWVB string and you will only get stats:
+```
+raspberrypi:~/GITHUB/es100-wwvb-refclock $ grep RX_WWVB es100-wwvb-test.log 
+```
+Sample results:
+```
+RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874523.02 2019-11-16T03-22-03Z 1573874523.0 -19.9429988861
+RX_WWVB_STAT_COUNTERS 1  RX_OK_ANT1 1  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874677.99 2019-11-16T03-24-38Z 1573874678.0 11.0199451447
+RX_WWVB_STAT_COUNTERS 2  RX_OK_ANT1 2  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874833.06 2019-11-16T03-27-13Z 1573874833.0 -63.1880760193
+RX_WWVB_STAT_COUNTERS 3  RX_OK_ANT1 3  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874988.98 2019-11-16T03-29-49Z 1573874989.0 17.4679756165
+RX_WWVB_STAT_COUNTERS 4  RX_OK_ANT1 4  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875144.0 2019-11-16T03-32-24Z 1573875144.0 -1.39904022217
+RX_WWVB_STAT_COUNTERS 5  RX_OK_ANT1 5  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875299.02 2019-11-16T03-34-59Z 1573875299.0 -21.5220451355
+RX_WWVB_STAT_COUNTERS 6  RX_OK_ANT1 6  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875454.04 2019-11-16T03-37-34Z 1573875454.0 -42.2201156616
+RX_WWVB_STAT_COUNTERS 7  RX_OK_ANT1 7  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875609.01 2019-11-16T03-40-09Z 1573875609.0 -12.2420787811
+RX_WWVB_STAT_COUNTERS 8  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 4 IRQ_NO_DATA 0 1573875770.35 1970-01-01T00:00:00Z 0 0.0
+RX_WWVB_STAT_COUNTERS 9  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 1  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 4 IRQ_NO_DATA 0 1573875938.09 1970-01-01T00:00:00Z 0 0.0
+RX_WWVB_STAT_COUNTERS 10  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 2  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+RX_WWVB_STAT 2 RX_OK_ANT2 2 1573876100.02 2019-11-16T03-48-20Z 1573876100.0 -18.424987793
+RX_WWVB_STAT_COUNTERS 11  RX_OK_ANT1 8  RX_OK_ANT2 1  TIMEOUT 0  IRQ_NO_DATA 2  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+```
+
+
+## CANADUINO WWVB hardware
+
+Universal Solder has a related product, the CANADUINO WWVB receiver, based on the MAS6180C chip. This product does not handle phase modulation, but provides for access to the digitalized raw bit stream. Something quite interesting. I have not played with this unit yet. Presumably the ability of reading the timing pulses of the AM modulation should allow software to both decode all the 60 data bits as well as get timing information from all timemarks, FRM and P*
+* https://www.universal-solder.ca/product/canaduino-60khz-atomic-clock-receiver-module-wwvb-msf-jjy60/
+* http://canaduino.ca/downloads/CANADUINO_Atomic_Clock_Receiver_Kit_SMD.pdf
+* https://github.com/ahooper/WWVBClock
