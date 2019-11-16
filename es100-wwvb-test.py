@@ -15,11 +15,12 @@
 #
 # TODO: major issues to be fixed:
 #
-# (A) The receiver can trigger an IRQ which simply indicates that RX was unsuccessful,
+# (A) Need to support continous RX mode.
+# (B) The receiver can trigger an IRQ which simply indicates that RX was unsuccessful,
 #     and retry is pending. The current code simply treats this as a timeout and restarts reception.
-# (B) Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported,
+# (C) Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported,
 #     see datasheet for details.
-# (C) Figure out best antenna strategy. This is probably best done later on once we have SHM NTP refclock.
+# (D) Figure out best antenna strategy. This is probably best done later on once we have SHM NTP refclock.
 #
 # TODO: minor issues to be fixed:
 #
@@ -316,7 +317,14 @@ def wait_rx_wwvb_device(bus):
                         rx_time_print_debug = rx_time_now + 15
                 if rx_time_waiting > 150:
                         print ""
-                        print "wait_rx_wwvb_device: TIMEOUT: status0=" + str(status0) + ": " + str(time.time() - rx_start_time)
+                        irq_status = read_wwvb_device(bus, ES100_IRQ_STATUS_REG)
+                        control0 = read_wwvb_device(bus, ES100_CONTROL0_REG)
+                        status0 = read_wwvb_device(bus, ES100_STATUS0_REG)
+                        gpio_irq_pin = get_gpio_irq()
+                        #print "read_rx_wwvb_device: control0 reg = " + str(control0)
+                        #print "read_rx_wwvb_device: status0 reg = " + str(status0)
+                        #print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
+                        print "wait_rx_wwvb_device: TIMEOUT: status0=" + str(status0) + ", " + "irq_status=" + str(irq_status) + ": " + str(time.time() - rx_start_time)
                         return -1
                 time.sleep(0.002)
                 #
@@ -480,6 +488,26 @@ def rx_wwvb_device(rx_params):
         disable_wwvb_device()
         return rx_ret
 
+def rx_wwvb_select_antenna(rx_ret, rx_params):
+        #
+        # set rx_params for next rx based on current ok_rx
+        # XXX: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
+        # or asking for ANT2_ANT1 over ANT2. maybe once we allow WWVB device to continue retry, it will.
+        # FIXME: add a small function to select this.
+        #
+        if rx_ret == RX_STATUS_WWVB_RX_OK_ANT1:
+                print "rx_wwvb_select_antenna: RX OK: using same antenna ANT1 for next RX"
+                return ES100_CONTROL_START_RX_ANT1
+        if rx_ret == RX_STATUS_WWVB_RX_OK_ANT2:
+                print "rx_wwvb_select_antenna: RX OK: using same antenna ANT2 for next RX"
+                return ES100_CONTROL_START_RX_ANT2
+        if rx_params == ES100_CONTROL_START_RX_ANT1:
+                print "rx_wwvb_select_antenna: RX FAILED on antenna ANT1: using antenna ANT2 for next RX"
+                return ES100_CONTROL_START_RX_ANT2
+        else:
+                print "rx_wwvb_select_antenna: RX FAILED on antenna ANT2: using antenna ANT1 for next RX"
+                return ES100_CONTROL_START_RX_ANT1
+
 #
 # emit machine readable rx stats line
 #
@@ -526,31 +554,22 @@ def main():
         # RX loop
         #
         while True:
+                #
+                # get wwvb timestamp
+                #
                 t0 = time.time()
                 rx_ret = rx_wwvb_device(rx_params)
                 t1 = time.time()
+                #
+                # emit stats
+                #
                 print "main: rx_loop = " + str(rx_loop) + " complete, rx_ret = " + str(rx_ret) + ", elapsed = " + str(t1-t0)
                 rx_loop = rx_loop + 1
                 rx_stats[rx_ret] = rx_stats[rx_ret] + 1
                 wwvb_emit_rx_stats(rx_loop, rx_stats)
                 #
-                # set rx_params for next rx based on current ok_rx
-                # XXX: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
-                # or asking for ANT2_ANT1 over ANT2. maybe once we allow WWVB device to continue retry, it will.
-                # FIXME: add a small function to select this.
+                # select rx antenna for next receive
                 #
-                if rx_ret == RX_STATUS_WWVB_RX_OK_ANT1:
-                        print "main: rx_loop = " + str(rx_loop) + " RX ok, using same antenna ANT1 for next RX"
-                        rx_params = ES100_CONTROL_START_RX_ANT1
-                if rx_ret == RX_STATUS_WWVB_RX_OK_ANT2:
-                        print "main: rx_loop = " + str(rx_loop) + " RX ok, using same antenna ANT2 for next RX"
-                        rx_params = ES100_CONTROL_START_RX_ANT2
-                if rx_ret != RX_STATUS_WWVB_RX_OK_ANT1 and rx_ret != RX_STATUS_WWVB_RX_OK_ANT2:
-                        if rx_params == ES100_CONTROL_START_RX_ANT1:
-                                print "main: rx_loop = " + str(rx_loop) + " RX failed, using other antenna ANT2 for next RX"
-                                rx_params = ES100_CONTROL_START_RX_ANT2
-                        else:
-                                print "main: rx_loop = " + str(rx_loop) + " RX failed, using other antenna ANT1 for next RX"
-                                rx_params = ES100_CONTROL_START_RX_ANT2
+                rx_params = rx_wwvb_select_antenna(rx_ret, rx_params)
 
 main()

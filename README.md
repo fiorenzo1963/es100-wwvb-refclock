@@ -19,13 +19,20 @@ One major limitation of the test code is that it is quite dumb in that it simply
 
 ## TODO
 
+* Need to support continous RX mode.
 * The receiver can trigger an IRQ which simply indicates that RX was unsuccessful, and retry is pending. The current code simply treats this as a timeout and restarts reception.
 * Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported, see datasheet for details.
-* Actually implement shared memory NTP refclock.
+* Actually implement shared memory NTP refclock, so the implementation will match the project Description.
 
 ## CHANGELOG
 
 * See CHANGELOG file
+
+## Acknowledgments
+
+* Many thanks to members of time-nuts mailing list.
+	* Particular thanks to Hal Murray, who is giving me many precious hints and suggestions.
+* Many thanks to my wife and daugthers, who somehow think my timekeeping hobby is weird, but still put up with me.
 
 ## Links
 
@@ -43,6 +50,8 @@ One major limitation of the test code is that it is quite dumb in that it simply
 	* https://www.ion.org/publications/abstract.cfm?articleID=15622
 	* http://www.leapsecond.com/pages/sony-wwvb/
 	* https://www.raspberrypi.org/forums/viewtopic.php?t=20968
+	* https://www.satsignal.eu/ntp/Raspberry-Pi-quickstart.html
+	* http://www.buzzard.me.uk/jonathan/radioclock.html
 	* http://www.ko4bb.com/Timing/
 	* http://leapsecond.com/time-nuts.htm
 	* http://www.leapsecond.com/hsn2006/ch2.pdf
@@ -53,14 +62,14 @@ The hardware kit comes with a small PCB with the software-defined radio and two 
 * White Paper on the WWVB receiver: https://s2.smu.edu/~yliang/publications/A%20Multi-Mode%20Software-Defined%20CMOS%20BPSK%20Receiver%20SoC%20for%20WWVB.PDF
 * Any suitable I2C bus and 3.3v GPIO pins can be used of course. In my case the setup for Raspberry PI3 is as follows:
 ```
-PI3 PHYS PIN       PI3 PIN FUNCTION                 WIRE COLOR
-============       ================                 ==========
-1                  VCC (3.3V)                       BLUE
-3                  SDA (I2C DATA)                   GREEN  
-5                  SCL (I2C CLOCK)                  YELLOW
-7                  GPIO.7 (3.3V DEV_ENABLE)         ORANGE
-9                  GND                              RED
-11                 GPIO.9 (3.3V DEV_IRQ)            BROWN
+PI3 PHYS PIN    BCM PIN     PI3 PIN FUNCTION                 WIRE COLOR
+============    =======     ================                 ==========
+1                           VCC (3.3V)                       BLUE
+3               2           SDA (I2C DATA)                   GREEN
+5               3           SCL (I2C CLOCK)                  YELLOW
+7               4           GPIO.7 (3.3V DEV_ENABLE)         ORANGE
+9                           GND                              RED
+11              17          GPIO.0 (3.3V DEV_IRQ)            BROWN
 ```
 * The corresponding pinout on the ES100 WWVB hardware is as follows:
 ```
@@ -211,6 +220,16 @@ In my current test installation I placed the two antennas at 45 degrees of each 
 -27.853012085 msecs
 0.614881515503 msecs
 -24.9390602112 msecs
+```
+
+## System Configuration
+* Enable I2C
+* Enable SMBUS
+* Enable PPS - PPS is configured by default, so all you should have to do is make sure that gpio-pps module is loaded at boot time
+* Setup PPS in /boot/config.txt - note that the pin numbering in /boot/config.txt follows the BCM numbering
+```
+dtoverlay=pps-gpio,gpiopin=17
+dtoverlay=pps-gpio,assert_falling_edge
 ```
 
 ## Metrics

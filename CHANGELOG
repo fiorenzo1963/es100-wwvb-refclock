@@ -1,3 +1,6 @@
+* Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191116-1.0
+- Fix antenna selection for next rx
+- Some code cleanup and refactoring
 * Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191115-1.1
 - Some code cleanup and refactoring
 - Added more information and explanations in README file
