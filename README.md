@@ -5,15 +5,15 @@ Python test code and Shared memory NTP reference clock for Everset es100 WWVB re
 This repository contains software to interface with Everset es100 WWVB receiver. This receiver is a dual-antenna software-defined radioclock which gets the timestamp code transmitted by NIST's WWVB 60 kHz radio station in Fort Collins, Colorado.
 The test code is written in Python for ease of use, developed and tested on Raspberry PI 3.
 
-Currently only the test code is implemented. Once it becomes feature complete I'll write the NTP SHM refclock driver based on the test code. Using python for test code allows for quick prototyping and can be easily copied and reused by anyne who is not familiar with C.
+Currently only the test code is implemented. Once it becomes feature complete I'll write the NTP SHM refclock driver based on the test code. Using python for test code allows for quick prototyping and can be easily copied and reused for any purposes by anyne who is not familiar with C.
 
-The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C baud rate.
+The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
 
 Two major functionalities need to be added to the best code before I start writing the NTP reference clock:
 * Allow receiver to continue retry operation after being notified that current RX was unsucceful.
-* Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the first features somewhat moot.
+* Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the above feature somewhat moot.
 
-One major limitation of the test code is that it is quite dumb in that it simply polls the WWVB receiver every 2 milliseconds. The NTP reference clock implementation will make use of PPS timestamping for accuracy and efficiency. However actual improvements are likely to be fairly low due to the jitter of the signal itself, which is quite high.
+One major limitation of the test code is that it is quite dumb in that it simply polls the WWVB receiver every 2 milliseconds. The NTP reference clock implementation will make use of PPS timestamping for accuracy and efficiency. However actual improvements are likely to be fairly low due to the jitter of the signal itself, which is fairly high.
 
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_dual_antennas.jpg)
 
@@ -38,16 +38,20 @@ One major limitation of the test code is that it is quite dumb in that it simply
 * WWVB general information
 	* WWVB Wikipedia https://en.wikipedia.org/wiki/WWVB
 	* NIST's WWVB Page https://www.nist.gov/pml/time-and-frequency-division/radio-stations/wwvb
+	* https://www.febo.com/time-freq/wwvb/index.html
 * Links of interest and related projects
 	* https://www.ion.org/publications/abstract.cfm?articleID=15622
 	* http://www.leapsecond.com/pages/sony-wwvb/
 	* https://www.raspberrypi.org/forums/viewtopic.php?t=20968
+	* http://www.ko4bb.com/Timing/
+	* http://leapsecond.com/time-nuts.htm
+	* http://www.leapsecond.com/hsn2006/ch2.pdf
 
 ## Hardware Description and Setup
 
-The hardware kit comes with a small PCB with the software-defined radio and two small ferrite antennas. Everset claims significantly improved RX ability over legacy antennas. It is certainly very small and compact.
+The hardware kit comes with a small PCB with the software-defined radio and two small ferrite antennas. Everset claims significantly improved RX ability over a single antenna system -- there is quite a bit of debate about this on time-nuts mailing list. Future statistics should be able to tell if this claim is true.
 * White Paper on the WWVB receiver: https://s2.smu.edu/~yliang/publications/A%20Multi-Mode%20Software-Defined%20CMOS%20BPSK%20Receiver%20SoC%20for%20WWVB.PDF
-* Any suitable I2C bus and 3.3v GPIO pins can be used of course. In my case the setup is as follows:
+* Any suitable I2C bus and 3.3v GPIO pins can be used of course. In my case the setup for Raspberry PI3 is as follows:
 ```
 PI3 PHYS PIN       PI3 PIN FUNCTION                 WIRE COLOR
 ============       ================                 ==========
@@ -89,7 +93,7 @@ In my current test installation I placed the two antennas at 45 degrees of each 
 	* Average ~ -10 milliseconds
 	* Most samples are within +40/-60 milliseconds
 	* All samples are within +60/-120 milliseconds
-* Phase (aka offset) error plot, with moving average (note that RX errors are ignored here)
+* Phase (aka offset) error plot, with moving average (note that RX errors are ignored here). The X axis is dimensionless and corresponds to one received WWVB timestamp. The next plot will show RX errors and actual timestamp.
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/wwvb_offset_error_20191115.jpg)
 * Raw data
 ```
@@ -211,40 +215,33 @@ In my current test installation I placed the two antennas at 45 degrees of each 
 
 ## Metrics
 
-The sample code now also emits statistical information in a machine parseable format, useful to make Allan Plots and other kinds of statistical inference. See source code for Simply greb for RX_WWVB string and you will only get stats:
+The sample code now also emits statistical information in a machine parseable format, useful to make Allan Plots and several other kinds of statistical inference. Two types of metrics are emitted:
+* RX clockstats information **RX_WWVB_CLOCKSTATS**
 ```
-raspberrypi:~/GITHUB/es100-wwvb-refclock $ grep RX_WWVB es100-wwvb-test.log 
+pi@wwvb-raspberrypi:~/GITHUB/es100-wwvb-refclock $ grep RX_WWVB_CLOCKSTATS es100-wwvb-test.log 
 ```
-Sample results:
+* RX stats counter information **RX_WWVB_STAT_COUNTERS**
 ```
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874523.02 2019-11-16T03-22-03Z 1573874523.0 -19.9429988861
-RX_WWVB_STAT_COUNTERS 1  RX_OK_ANT1 1  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874677.99 2019-11-16T03-24-38Z 1573874678.0 11.0199451447
-RX_WWVB_STAT_COUNTERS 2  RX_OK_ANT1 2  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874833.06 2019-11-16T03-27-13Z 1573874833.0 -63.1880760193
-RX_WWVB_STAT_COUNTERS 3  RX_OK_ANT1 3  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874988.98 2019-11-16T03-29-49Z 1573874989.0 17.4679756165
-RX_WWVB_STAT_COUNTERS 4  RX_OK_ANT1 4  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875144.0 2019-11-16T03-32-24Z 1573875144.0 -1.39904022217
-RX_WWVB_STAT_COUNTERS 5  RX_OK_ANT1 5  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875299.02 2019-11-16T03-34-59Z 1573875299.0 -21.5220451355
-RX_WWVB_STAT_COUNTERS 6  RX_OK_ANT1 6  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875454.04 2019-11-16T03-37-34Z 1573875454.0 -42.2201156616
-RX_WWVB_STAT_COUNTERS 7  RX_OK_ANT1 7  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875609.01 2019-11-16T03-40-09Z 1573875609.0 -12.2420787811
-RX_WWVB_STAT_COUNTERS 8  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 4 IRQ_NO_DATA 0 1573875770.35 1970-01-01T00:00:00Z 0 0.0
-RX_WWVB_STAT_COUNTERS 9  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 1  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 4 IRQ_NO_DATA 0 1573875938.09 1970-01-01T00:00:00Z 0 0.0
-RX_WWVB_STAT_COUNTERS 10  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 2  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-RX_WWVB_STAT 2 RX_OK_ANT2 2 1573876100.02 2019-11-16T03-48-20Z 1573876100.0 -18.424987793
-RX_WWVB_STAT_COUNTERS 11  RX_OK_ANT1 8  RX_OK_ANT2 1  TIMEOUT 0  IRQ_NO_DATA 2  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+pi@wwvb-raspberrypi:~/GITHUB/es100-wwvb-refclock $ grep RX_WWVB_STAT_COUNTERS es100-wwvb-test.log 
+```
+Sample results for **RX_WWVB_CLOCKSTATS**:
+```
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573874523.02,0,2019-11-16T03-22-03Z,1573874523.0,-19.9429988861
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573874677.99,0,2019-11-16T03-24-38Z,1573874678.0,11.0199451447
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573874833.06,0,2019-11-16T03-27-13Z,1573874833.0,-63.1880760193
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573874988.98,0,2019-11-16T03-29-49Z,1573874989.0,17.4679756165
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573875144.0,0,2019-11-16T03-32-24Z,1573875144.0,-1.39904022217
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573875299.02,0,2019-11-16T03-34-59Z,1573875299.0,-21.5220451355
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573875454.04,0,2019-11-16T03-37-34Z,1573875454.0,-42.2201156616
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573875609.01,0,2019-11-16T03-40-09Z,1573875609.0,-12.2420787811
+RX_WWVB_CLOCKSTATS,v1,4,IRQ_NO_DATA,0,1573875770.35,0,,,
+RX_WWVB_CLOCKSTATS,v1,4,IRQ_NO_DATA,0,1573875938.09,0,,,
+RX_WWVB_CLOCKSTATS,v1,2,RX_OK_ANT2,2,1573876100.02,0,2019-11-16T03-48-20Z,1573876100.0,-18.424987793
 ```
 
+## Related WWVB Hardware
 
-## CANADUINO WWVB hardware
-
-Universal Solder has a related product, the CANADUINO WWVB receiver, based on the MAS6180C chip. This product does not handle phase modulation, but provides for access to the digitalized raw bit stream. Something quite interesting. I have not played with this unit yet. Presumably the ability of reading the timing pulses of the AM modulation should allow software to both decode all the 60 data bits as well as get timing information from all timemarks, FRM and P*
+CANADUINO makes another WWVB receiver, based on the MAS6180C chip. This product is single antenna does not handle phase modulation, but provides for access to the digitalized raw bit stream. Something quite interesting. I have not played with this unit yet. Presumably the ability of reading the timing pulses of the AM modulation should allow software to both decode all the 60 data bits as well as get timing information from all timemark frames FRM, P1-P5 and P0.
 * https://www.universal-solder.ca/product/canaduino-60khz-atomic-clock-receiver-module-wwvb-msf-jjy60/
 * http://canaduino.ca/downloads/CANADUINO_Atomic_Clock_Receiver_Kit_SMD.pdf
 * https://github.com/ahooper/WWVBClock

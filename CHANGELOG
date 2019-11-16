@@ -1,2 +1,6 @@
+* Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191115-1.1
+- Some code cleanup and refactoring
+- Added more information and explanations in README file
+- Added machine parseable "clockstats" and rx stat counters
 * Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191115-1.0
 - Initial release

@@ -1,15 +1,15 @@
 nohup: ignoring input
-rx_wwvb_device: initializing, rx_params=1
-init_wwvb_device: initializing ES100 WWVB receiver
+rx_wwvb_device_init
 set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-./es100-wwvb-test.py:148: RuntimeWarning: This channel is already in use, continuing anyway.  Use GPIO.setwarnings(False) to disable warnings.
-  GPIO.setup(GPIO_DEV_ENABLE, GPIO.OUT)
 set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
 set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
 disable_wwvb_device: disabling WWVB device (ENABLE=0)
+rx_wwvb_device_init: done
+init_wwvb_device: initializing ES100 WWVB receiver
+disable_wwvb_device: disabling WWVB device (ENABLE=0)
 enable_wwvb_device: enabling WWVB device (ENABLE=1)
 init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
+init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x766fb4e8>
 init_wwvb_device: reading from WWVB device
 init_wwvb_device: device value = 0
 init_wwvb_device: control0 reg = 0
@@ -17,79 +17,33 @@ init_wwvb_device: control1 reg = 0
 init_wwvb_device: status0 reg = 0
 init_wwvb_device: GPIO_IRQ pin = 1
 init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
 start_rx_wwvb_device: WWVB receive: starting RX on antenna 1-2
-start_rx_wwvb_device: time/offset = 1573874387.14/47
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573874387.14/47
-wait_rx_wwvb_device:    0/47    15/2    30/17    45/32    60/47    75/2    90/17    105/32    120/47    135/2 
-rx_wwvb_device: rx operation complete: 1573874523.02
-rx_wwvb_device: rx operation complete: 3.01994299889 (minute offset)
+start_rx_wwvb_device: time/offset = 1573888585.89/25
+wait_rx_wwvb_device: time/offset = 1573888585.89/25
+wait_rx_wwvb_device:    0/25    15/40    30/55    45/10    60/25    75/40    90/55    105/10    120/25    135/40 
+rx_wwvb_device: rx operation complete: 42.0167241096 (minute offset)
 read_rx_wwvb_device: control0 reg = 0
 read_rx_wwvb_device: status0 reg = 1
 read_rx_wwvb_device: irq_status reg = 1
 read_rx_wwvb_device: GPIO_IRQ pin = 1
+read_rx_wwvb_device: status0 reg: RX ANTENNA 1
 read_rx_wwvb_device: irq_status reg = RX complete - OK
 read_rx_wwvb_device: status0 reg: RX_OK - OK
 read_rx_wwvb_device: status0 reg: RX ANTENNA 1
-read_rx_wwvb_device: WWVB_TIME = 1573874523.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-22-03Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -19.9429988861 msecs
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874523.02 2019-11-16T03-22-03Z 1573874523.0 -19.9429988861
+read_rx_wwvb_device: WWVB_TIME = 1573888722.0
+read_rx_wwvb_device: WWVB_TIME = 2019-11-16T07-18-42Z
+read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -16.7241096497 msecs
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573888722.02,0,2019-11-16T07-18-42Z,1573888722.0,-16.7241096497
 rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
 disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 0 complete, rx_ret = 1, elapsed = 155.62082696
-RX_WWVB_STAT_COUNTERS 1  RX_OK_ANT1 1  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 0 RX ok, using same antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=5
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only
-start_rx_wwvb_device: time/offset = 1573874542.76/22
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573874542.76/22
-wait_rx_wwvb_device:    0/22    15/37    30/52    45/7    60/22    75/37    90/52    105/7    120/22    135/37 
-rx_wwvb_device: rx operation complete: 1573874677.99
-rx_wwvb_device: rx operation complete: 37.9889800549 (minute offset)
-read_rx_wwvb_device: control0 reg = 0
-read_rx_wwvb_device: status0 reg = 1
-read_rx_wwvb_device: irq_status reg = 1
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX complete - OK
-read_rx_wwvb_device: status0 reg: RX_OK - OK
-read_rx_wwvb_device: status0 reg: RX ANTENNA 1
-read_rx_wwvb_device: WWVB_TIME = 1573874678.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-24-38Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = 11.0199451447 msecs
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874677.99 2019-11-16T03-24-38Z 1573874678.0 11.0199451447
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 1 complete, rx_ret = 1, elapsed = 154.968837023
-RX_WWVB_STAT_COUNTERS 2  RX_OK_ANT1 2  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+main: rx_loop = 0 complete, rx_ret = 1, elapsed = 155.367928028
+RX_WWVB_STAT_COUNTERS,v1,1,1,RX_OK_ANT1,1,RX_OK_ANT2,0,TIMEOUT,0,IRQ_NO_DATA,0,BAD_IRQ_STATUS,0,WWVB_BAD_STATUS0,0,WWVB_STATUS0_NO_RX,0
 main: rx_loop = 1 RX ok, using same antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=5
 init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
 disable_wwvb_device: disabling WWVB device (ENABLE=0)
 enable_wwvb_device: enabling WWVB device (ENABLE=1)
 init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
+init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x766fb4e8>
 init_wwvb_device: reading from WWVB device
 init_wwvb_device: device value = 0
 init_wwvb_device: control0 reg = 0
@@ -97,39 +51,33 @@ init_wwvb_device: control1 reg = 0
 init_wwvb_device: status0 reg = 0
 init_wwvb_device: GPIO_IRQ pin = 1
 init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
 start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only
-start_rx_wwvb_device: time/offset = 1573874697.74/57
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573874697.74/57
-wait_rx_wwvb_device:    0/57    15/12    30/27    45/42    60/57    75/12    90/27    105/42    120/57    135/12 
-rx_wwvb_device: rx operation complete: 1573874833.06
-rx_wwvb_device: rx operation complete: 13.063188076 (minute offset)
+start_rx_wwvb_device: time/offset = 1573888741.26/1
+wait_rx_wwvb_device: time/offset = 1573888741.26/1
+wait_rx_wwvb_device:    0/1    15/16    30/31    45/46    60/1    75/16    90/31    105/46    120/1    135/16 
+rx_wwvb_device: rx operation complete: 16.9835178852 (minute offset)
 read_rx_wwvb_device: control0 reg = 0
 read_rx_wwvb_device: status0 reg = 1
 read_rx_wwvb_device: irq_status reg = 1
 read_rx_wwvb_device: GPIO_IRQ pin = 1
+read_rx_wwvb_device: status0 reg: RX ANTENNA 1
 read_rx_wwvb_device: irq_status reg = RX complete - OK
 read_rx_wwvb_device: status0 reg: RX_OK - OK
 read_rx_wwvb_device: status0 reg: RX ANTENNA 1
-read_rx_wwvb_device: WWVB_TIME = 1573874833.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-27-13Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -63.1880760193 msecs
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874833.06 2019-11-16T03-27-13Z 1573874833.0 -63.1880760193
+read_rx_wwvb_device: WWVB_TIME = 1573888877.0
+read_rx_wwvb_device: WWVB_TIME = 2019-11-16T07-21-17Z
+read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = 16.4821147919 msecs
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573888876.98,0,2019-11-16T07-21-17Z,1573888877.0,16.4821147919
 rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
 disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 2 complete, rx_ret = 1, elapsed = 155.07337594
-RX_WWVB_STAT_COUNTERS 3  RX_OK_ANT1 3  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
+main: rx_loop = 1 complete, rx_ret = 1, elapsed = 154.967850924
+RX_WWVB_STAT_COUNTERS,v1,2,2,RX_OK_ANT1,2,RX_OK_ANT2,0,TIMEOUT,0,IRQ_NO_DATA,0,BAD_IRQ_STATUS,0,WWVB_BAD_STATUS0,0,WWVB_STATUS0_NO_RX,0
 main: rx_loop = 2 RX ok, using same antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=5
 init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
 disable_wwvb_device: disabling WWVB device (ENABLE=0)
 enable_wwvb_device: enabling WWVB device (ENABLE=1)
 init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
+init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x766fb4e8>
 init_wwvb_device: reading from WWVB device
 init_wwvb_device: device value = 0
 init_wwvb_device: control0 reg = 0
@@ -137,381 +85,24 @@ init_wwvb_device: control1 reg = 0
 init_wwvb_device: status0 reg = 0
 init_wwvb_device: GPIO_IRQ pin = 1
 init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
 start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only
-start_rx_wwvb_device: time/offset = 1573874852.81/32
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573874852.81/32
-wait_rx_wwvb_device:    0/32    15/47    30/2    45/17    60/32    75/47    90/2    105/17    120/32    135/47 
-rx_wwvb_device: rx operation complete: 1573874988.98
-rx_wwvb_device: rx operation complete: 48.9825320244 (minute offset)
+start_rx_wwvb_device: time/offset = 1573888896.23/36
+wait_rx_wwvb_device: time/offset = 1573888896.23/36
+wait_rx_wwvb_device:    0/36    15/51    30/6    45/21    60/36    75/51    90/6    105/21    120/36    135/51 
+rx_wwvb_device: rx operation complete: 52.003344059 (minute offset)
 read_rx_wwvb_device: control0 reg = 0
 read_rx_wwvb_device: status0 reg = 1
 read_rx_wwvb_device: irq_status reg = 1
 read_rx_wwvb_device: GPIO_IRQ pin = 1
+read_rx_wwvb_device: status0 reg: RX ANTENNA 1
 read_rx_wwvb_device: irq_status reg = RX complete - OK
 read_rx_wwvb_device: status0 reg: RX_OK - OK
 read_rx_wwvb_device: status0 reg: RX ANTENNA 1
-read_rx_wwvb_device: WWVB_TIME = 1573874989.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-29-49Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = 17.4679756165 msecs
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573874988.98 2019-11-16T03-29-49Z 1573874989.0 17.4679756165
+read_rx_wwvb_device: WWVB_TIME = 1573889032.0
+read_rx_wwvb_device: WWVB_TIME = 2019-11-16T07-23-52Z
+read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -3.34405899048 msecs
+RX_WWVB_CLOCKSTATS,v1,1,RX_OK_ANT1,1,1573889032.0,0,2019-11-16T07-23-52Z,1573889032.0,-3.34405899048
 rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
 disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 3 complete, rx_ret = 1, elapsed = 155.91870904
-RX_WWVB_STAT_COUNTERS 4  RX_OK_ANT1 4  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 3 RX ok, using same antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=5
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only
-start_rx_wwvb_device: time/offset = 1573875008.73/8
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573875008.73/8
-wait_rx_wwvb_device:    0/8    15/23    30/38    45/53    60/8    75/23    90/38    105/53    120/8    135/23 
-rx_wwvb_device: rx operation complete: 1573875144.0
-rx_wwvb_device: rx operation complete: 24.0013990402 (minute offset)
-read_rx_wwvb_device: control0 reg = 0
-read_rx_wwvb_device: status0 reg = 1
-read_rx_wwvb_device: irq_status reg = 1
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX complete - OK
-read_rx_wwvb_device: status0 reg: RX_OK - OK
-read_rx_wwvb_device: status0 reg: RX ANTENNA 1
-read_rx_wwvb_device: WWVB_TIME = 1573875144.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-32-24Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -1.39904022217 msecs
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875144.0 2019-11-16T03-32-24Z 1573875144.0 -1.39904022217
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 4 complete, rx_ret = 1, elapsed = 155.018288136
-RX_WWVB_STAT_COUNTERS 5  RX_OK_ANT1 5  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 4 RX ok, using same antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=5
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only
-start_rx_wwvb_device: time/offset = 1573875163.75/43
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573875163.75/43
-wait_rx_wwvb_device:    0/43    15/58    30/13    45/28    60/43    75/58    90/13    105/28    120/43    135/58 
-rx_wwvb_device: rx operation complete: 1573875299.02
-rx_wwvb_device: rx operation complete: 59.0215220451 (minute offset)
-read_rx_wwvb_device: control0 reg = 0
-read_rx_wwvb_device: status0 reg = 1
-read_rx_wwvb_device: irq_status reg = 1
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX complete - OK
-read_rx_wwvb_device: status0 reg: RX_OK - OK
-read_rx_wwvb_device: status0 reg: RX ANTENNA 1
-read_rx_wwvb_device: WWVB_TIME = 1573875299.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-34-59Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -21.5220451355 msecs
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875299.02 2019-11-16T03-34-59Z 1573875299.0 -21.5220451355
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 5 complete, rx_ret = 1, elapsed = 155.019379854
-RX_WWVB_STAT_COUNTERS 6  RX_OK_ANT1 6  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 5 RX ok, using same antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=5
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only
-start_rx_wwvb_device: time/offset = 1573875318.77/18
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573875318.77/18
-wait_rx_wwvb_device:    0/18    15/33    30/48    45/3    60/18    75/33    90/48    105/3    120/18    135/33 
-rx_wwvb_device: rx operation complete: 1573875454.04
-rx_wwvb_device: rx operation complete: 34.0422201157 (minute offset)
-read_rx_wwvb_device: control0 reg = 0
-read_rx_wwvb_device: status0 reg = 1
-read_rx_wwvb_device: irq_status reg = 1
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX complete - OK
-read_rx_wwvb_device: status0 reg: RX_OK - OK
-read_rx_wwvb_device: status0 reg: RX ANTENNA 1
-read_rx_wwvb_device: WWVB_TIME = 1573875454.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-37-34Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -42.2201156616 msecs
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875454.04 2019-11-16T03-37-34Z 1573875454.0 -42.2201156616
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 6 complete, rx_ret = 1, elapsed = 155.019932985
-RX_WWVB_STAT_COUNTERS 7  RX_OK_ANT1 7  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 6 RX ok, using same antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=5
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only
-start_rx_wwvb_device: time/offset = 1573875473.79/53
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573875473.79/53
-wait_rx_wwvb_device:    0/53    15/8    30/23    45/38    60/53    75/8    90/23    105/38    120/53    135/8 
-rx_wwvb_device: rx operation complete: 1573875609.01
-rx_wwvb_device: rx operation complete: 9.01224207878 (minute offset)
-read_rx_wwvb_device: control0 reg = 0
-read_rx_wwvb_device: status0 reg = 1
-read_rx_wwvb_device: irq_status reg = 1
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX complete - OK
-read_rx_wwvb_device: status0 reg: RX_OK - OK
-read_rx_wwvb_device: status0 reg: RX ANTENNA 1
-read_rx_wwvb_device: WWVB_TIME = 1573875609.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-40-09Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -12.2420787811 msecs
-RX_WWVB_STAT 1 RX_OK_ANT1 1 1573875609.01 2019-11-16T03-40-09Z 1573875609.0 -12.2420787811
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 7 complete, rx_ret = 1, elapsed = 154.969436884
-RX_WWVB_STAT_COUNTERS 8  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 0  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 7 RX ok, using same antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=5
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only
-start_rx_wwvb_device: time/offset = 1573875628.76/28
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573875628.76/28
-wait_rx_wwvb_device:    0/28    15/43    30/58    45/13    60/28    75/43    90/58    105/13    120/28    135/43 
-rx_wwvb_device: rx operation complete: 1573875770.35
-rx_wwvb_device: rx operation complete: 50.3510160446 (minute offset)
-read_rx_wwvb_device: control0 reg = 5
-read_rx_wwvb_device: status0 reg = 0
-read_rx_wwvb_device: irq_status reg = 4
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX cycle complete, but no data, receiver retrying - FAILED
-read_rx_wwvb_device: FIXME: need to handle this case by waiting again
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-RX_WWVB_STAT 4 IRQ_NO_DATA 0 1573875770.35 1970-01-01T00:00:00Z 0 0.0
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 8 complete, rx_ret = 4, elapsed = 167.741343021
-RX_WWVB_STAT_COUNTERS 9  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 1  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 8 RX failed, using other antenna ANT2 for next RX
-rx_wwvb_device: initializing, rx_params=3
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 2 only
-start_rx_wwvb_device: time/offset = 1573875796.5/16
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573875796.5/16
-wait_rx_wwvb_device:    0/16    15/31    30/46    45/1    60/16    75/31    90/46    105/1    120/16    135/31 
-rx_wwvb_device: rx operation complete: 1573875938.09
-rx_wwvb_device: rx operation complete: 38.0942869186 (minute offset)
-read_rx_wwvb_device: control0 reg = 3
-read_rx_wwvb_device: status0 reg = 2
-read_rx_wwvb_device: irq_status reg = 4
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX cycle complete, but no data, receiver retrying - FAILED
-read_rx_wwvb_device: FIXME: need to handle this case by waiting again
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-RX_WWVB_STAT 4 IRQ_NO_DATA 0 1573875938.09 1970-01-01T00:00:00Z 0 0.0
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 9 complete, rx_ret = 4, elapsed = 167.742516041
-RX_WWVB_STAT_COUNTERS 10  RX_OK_ANT1 8  RX_OK_ANT2 0  TIMEOUT 0  IRQ_NO_DATA 2  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 9 RX failed, using other antenna ANT1 for next RX
-rx_wwvb_device: initializing, rx_params=3
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 2 only
-start_rx_wwvb_device: time/offset = 1573875964.24/4
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573875964.24/4
-wait_rx_wwvb_device:    0/4    15/19    30/34    45/49    60/4    75/19    90/34    105/49    120/4    135/19 
-rx_wwvb_device: rx operation complete: 1573876100.02
-rx_wwvb_device: rx operation complete: 20.0184249878 (minute offset)
-read_rx_wwvb_device: control0 reg = 0
-read_rx_wwvb_device: status0 reg = 3
-read_rx_wwvb_device: irq_status reg = 1
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX complete - OK
-read_rx_wwvb_device: status0 reg: RX_OK - OK
-read_rx_wwvb_device: status0 reg: RX ANTENNA 2
-read_rx_wwvb_device: WWVB_TIME = 1573876100.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-48-20Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = -18.424987793 msecs
-RX_WWVB_STAT 2 RX_OK_ANT2 2 1573876100.02 2019-11-16T03-48-20Z 1573876100.0 -18.424987793
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 10 complete, rx_ret = 2, elapsed = 155.520190001
-RX_WWVB_STAT_COUNTERS 11  RX_OK_ANT1 8  RX_OK_ANT2 1  TIMEOUT 0  IRQ_NO_DATA 2  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 10 RX ok, using same antenna ANT2 for next RX
-rx_wwvb_device: initializing, rx_params=3
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 2 only
-start_rx_wwvb_device: time/offset = 1573876119.75/39
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573876119.75/39
-wait_rx_wwvb_device:    0/39    15/54    30/9    45/24    60/39    75/54    90/9    105/24    120/39    135/54 
-rx_wwvb_device: rx operation complete: 1573876254.98
-rx_wwvb_device: rx operation complete: 54.9788579941 (minute offset)
-read_rx_wwvb_device: control0 reg = 0
-read_rx_wwvb_device: status0 reg = 3
-read_rx_wwvb_device: irq_status reg = 1
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX complete - OK
-read_rx_wwvb_device: status0 reg: RX_OK - OK
-read_rx_wwvb_device: status0 reg: RX ANTENNA 2
-read_rx_wwvb_device: WWVB_TIME = 1573876255.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-50-55Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = 21.1420059204 msecs
-RX_WWVB_STAT 2 RX_OK_ANT2 2 1573876254.98 2019-11-16T03-50-55Z 1573876255.0 21.1420059204
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 11 complete, rx_ret = 2, elapsed = 154.959862947
-RX_WWVB_STAT_COUNTERS 12  RX_OK_ANT1 8  RX_OK_ANT2 2  TIMEOUT 0  IRQ_NO_DATA 2  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 11 RX ok, using same antenna ANT2 for next RX
-rx_wwvb_device: initializing, rx_params=3
-init_wwvb_device: initializing ES100 WWVB receiver
-set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver
-set_gpio_pins_wwvb_device: func I2C_SCL_PIN = 42/42
-set_gpio_pins_wwvb_device: func I2C_SDA_PIN = 42/42
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-enable_wwvb_device: enabling WWVB device (ENABLE=1)
-init_wwvb_device: opening i2c bus channel = 1
-init_wwvb_device: i2c_bus_object = <smbus.SMBus object at 0x767154e8>
-init_wwvb_device: reading from WWVB device
-init_wwvb_device: device value = 0
-init_wwvb_device: control0 reg = 0
-init_wwvb_device: control1 reg = 0
-init_wwvb_device: status0 reg = 0
-init_wwvb_device: GPIO_IRQ pin = 1
-init_wwvb_device: done initializing ES100 WWVB receiver
-rx_wwvb_device: starting rx operation
-start_rx_wwvb_device: WWVB receive: starting RX on antenna 2 only
-start_rx_wwvb_device: time/offset = 1573876274.72/14
-rx_wwvb_device: wait for rx operation to complete
-wait_rx_wwvb_device: time/offset = 1573876274.72/14
-wait_rx_wwvb_device:    0/14    15/29    30/44    45/59    60/14    75/29    90/44    105/59    120/14    135/29 
-rx_wwvb_device: rx operation complete: 1573876410.0
-rx_wwvb_device: rx operation complete: 29.9993059635 (minute offset)
-read_rx_wwvb_device: control0 reg = 0
-read_rx_wwvb_device: status0 reg = 3
-read_rx_wwvb_device: irq_status reg = 1
-read_rx_wwvb_device: GPIO_IRQ pin = 1
-read_rx_wwvb_device: irq_status reg = RX complete - OK
-read_rx_wwvb_device: status0 reg: RX_OK - OK
-read_rx_wwvb_device: status0 reg: RX ANTENNA 2
-read_rx_wwvb_device: WWVB_TIME = 1573876410.0
-read_rx_wwvb_device: WWVB_TIME = 2019-11-16T03-53-30Z
-read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = 0.694036483765 msecs
-RX_WWVB_STAT 2 RX_OK_ANT2 2 1573876410.0 2019-11-16T03-53-30Z 1573876410.0 0.694036483765
-rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!
-disable_wwvb_device: disabling WWVB device (ENABLE=0)
-main: rx_loop = 12 complete, rx_ret = 2, elapsed = 155.019959927
-RX_WWVB_STAT_COUNTERS 13  RX_OK_ANT1 8  RX_OK_ANT2 3  TIMEOUT 0  IRQ_NO_DATA 2  BAD_IRQ_STATUS 0  WWVB_BAD_STATUS0 0  WWVB_STATUS0_NO_RX 0
-main: rx_loop = 12 RX ok, using same antenna ANT2 for next RX
+main: rx_loop = 2 complete, rx_ret = 1, elapsed = 155.019436836
+RX_WWVB_STAT_COUNTERS,v1,3,3,RX_OK_ANT1,3,RX_OK_ANT2,0,TIMEOUT,0,IRQ_NO_DATA,0,BAD_IRQ_STATUS,0,WWVB_BAD_STATUS0,0,WWVB_STATUS0_NO_RX,0

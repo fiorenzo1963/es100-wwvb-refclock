@@ -14,12 +14,15 @@
 # However any improvement is not likely to be very high, given the jitter of WWVB reception.
 #
 # TODO: major issues to be fixed:
+#
 # (A) The receiver can trigger an IRQ which simply indicates that RX was unsuccessful,
 #     and retry is pending. The current code simply treats this as a timeout and restarts reception.
 # (B) Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported,
 #     see datasheet for details.
+# (C) Figure out best antenna strategy. This is probably best done later on once we have SHM NTP refclock.
 #
 # TODO: minor issues to be fixed:
+#
 # (C) general code cleanup
 # (D) convert to a class object
 #
@@ -161,12 +164,24 @@ def set_gpio_pins_wwvb_device():
         #time.sleep(0.5)
         #print "set_gpio_pins_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
 
-def init_wwvb_device():
-        print "init_wwvb_device: initializing ES100 WWVB receiver"
+#
+# main entry point - init
+#
+def rx_wwvb_device_init():
+        print "rx_wwvb_device_init"
+        GPIO.setwarnings(False)
         #
         # set gpio pins
         #
         set_gpio_pins_wwvb_device()
+        #
+        # make sure WWVB receiver is powered down
+        #
+        disable_wwvb_device()
+        print "rx_wwvb_device_init: done"
+
+def init_wwvb_device():
+        print "init_wwvb_device: initializing ES100 WWVB receiver"
         #
         # set ENABLE pin to LOW to power it down
         #
@@ -221,7 +236,6 @@ RX_STATUS_WWVB_STR = (
                 "WWVB_STATUS0_NO_RX"
 )
 
-EPOCH_TIMESTAMP_STR = "1970-01-01T00:00:00Z"
 #
 # machine readable line for automated parsing and analysis
 # no other text printed by this tool begins with RX_WWVB_STAT
@@ -229,21 +243,36 @@ EPOCH_TIMESTAMP_STR = "1970-01-01T00:00:00Z"
 # format:
 #       rx_ret numerical form (one of the RX status codes above)
 #       rx_ret string form (one of the RX status codes above)
-#       rx_ant (1 or 2) - 0 if RX error
+#       rx_ant (1, 2 or 0 if unknown - latter only true in case of RX timeout)
 #       rx_timestamp (unix timestamp with fractional portion)
-#       wwvb_timestamp in ISO format - 0 if RX error
-#       wwvb_time (unix timestamp) - 1970-01-01T00:00:00Z if RX error
-#       rx_delta in milliseconds (wwvb_timestamp - rx_timestamp) - 0.0 if RX error
+#       wwvb_timestamp in ISO format - None if RX error
+#       wwvb_time (unix timestamp) - None if RX error
+#       rx_delta in milliseconds (wwvb_timestamp - rx_timestamp) - None if RX error
 #
-def wwvb_emit_stats(rx_ret, rx_ant, rx_timestamp, wwvb_time_str, wwvb_time, wwvb_delta_rx_timestamp_ms):
-        if wwvb_time_str == "":
-                wwvb_time_str = EPOCH_TIMESTAMP_STR
-        # yikes, use better formatting
-        rx_wwvb_stat = str(rx_ret) + " " + RX_STATUS_WWVB_STR[rx_ret] + " "
-        rx_wwvb_stat = rx_wwvb_stat + str(rx_ant) + " " + str(rx_timestamp) + " "
-        rx_wwvb_stat = rx_wwvb_stat + wwvb_time_str + " " + str(wwvb_time)
-        rx_wwvb_stat = rx_wwvb_stat + " " + str(wwvb_delta_rx_timestamp_ms)
-        print "RX_WWVB_STAT " + rx_wwvb_stat
+
+def wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_str = None, wwvb_time = None, wwvb_delta_rx_timestamp_ms = None):
+        # yikes, use better formatting technique
+        rx_s = str(rx_ret) + "," + RX_STATUS_WWVB_STR[rx_ret] + ","
+        rx_s = rx_s + str(rx_ant) + "," + str(rx_timestamp) + ","
+        #
+        # FIXME: add last_rx_timestamp code when this is converted into a class.
+        # for now just emit a zero
+        #
+        # if last_rx_timestamp == 0.0:
+        #        rx_s = rx_s + "0" + ","
+        # else:
+        #        rx_s = rx_s + str(rx_timestamp - last_rx_timestamp) + ","
+        rx_s = rx_s + "0" + ","
+        if wwvb_time_str is None:
+                wwvb_time_str = ""
+                wwvb_time = ""
+                wwvb_delta_rx_timestamp_ms = ""
+        rx_s = rx_s + wwvb_time_str + ","
+        rx_s = rx_s + str(wwvb_time) + ","
+        rx_s = rx_s + str(wwvb_delta_rx_timestamp_ms)
+        # version 1
+        print "RX_WWVB_CLOCKSTATS,v1," + rx_s
+        #last_rx_timestamp = rx_timestamp
 
 #
 # initiate RX operation on WWVB device and return data
@@ -317,6 +346,16 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
         print "read_rx_wwvb_device: GPIO_IRQ pin = " + str(gpio_irq_pin)
         #
+        # get rx_ant first, then process irq_status before status0 register
+        #
+        rx_ant = 0
+        if (status0 & 0x2) != 0x0:
+                print "read_rx_wwvb_device: status0 reg: RX ANTENNA 2"
+                rx_ant = 2
+        else:
+                print "read_rx_wwvb_device: status0 reg: RX ANTENNA 1"
+                rx_ant = 1
+        #
         # check IRQ_STATUS register first
         #
         if (irq_status & 0x5) == 0x1:
@@ -330,44 +369,41 @@ def read_rx_wwvb_device(bus, rx_timestamp):
                         print "read_rx_wwvb_device: irq_status reg = RX cycle complete, but no data, receiver retrying - FAILED"
                         print "read_rx_wwvb_device: FIXME: need to handle this case by waiting again"
                         disable_wwvb_device()
-                        wwvb_emit_stats(RX_STATUS_WWVB_IRQ_NO_DATA, 0, rx_timestamp, "", 0, 0.0)
+                        wwvb_emit_clockstats(RX_STATUS_WWVB_IRQ_NO_DATA, rx_ant, rx_timestamp)
                         return RX_STATUS_WWVB_IRQ_NO_DATA
                 else:
                         print "read_rx_wwvb_device: irq_status reg = RX unsuccessful - FAILED"
                         disable_wwvb_device()
-                        wwvb_emit_stats(RX_STATUS_WWVB_IRQ_STATUS, 0, rx_timestamp, "", 0, 0.0)
+                        wwvb_emit_clockstats(RX_STATUS_WWVB_IRQ_STATUS, rx_ant, rx_timestamp)
                         return RX_STATUS_WWVB_BAD_IRQ_STATUS
         if (status0 & 0x4) != 0x0:
                 print "read_rx_wwvb_device: status0 reg: RESERVED BIT IS SET --- ERROR"
                 disable_wwvb_device()
-                wwvb_emit_stats(RX_STATUS_WWVB_BAD_STATUS0, 0, rx_timestamp, "", 0, 0.0)
+                wwvb_emit_clockstats(RX_STATUS_WWVB_BAD_STATUS0, rx_ant, rx_timestamp)
                 return RX_STATUS_WWVB_BAD_STATUS0
         if (status0 & 0x5) == 0x1:
                 print "read_rx_wwvb_device: status0 reg: RX_OK - OK"
         else:
                 print "read_rx_wwvb_device: status0 reg: !RX_OK - FAILED"
                 disable_wwvb_device()
-                wwvb_emit_stats(RX_STATUS_WWVB_BAD_STATUS0, 0, rx_timestamp, "", 0, 0.0)
+                wwvb_emit_clockstats(RX_STATUS_WWVB_BAD_STATUS0, rx_ant, rx_timestamp)
                 return RX_STATUS_WWVB_STATUS0_NO_RX
         rx_ret = 0
-        rx_ant = ""
         if (status0 & 0x2) != 0x0:
                 print "read_rx_wwvb_device: status0 reg: RX ANTENNA 2"
                 rx_ret = RX_STATUS_WWVB_RX_OK_ANT2
-                rx_ant = 2
         else:
                 print "read_rx_wwvb_device: status0 reg: RX ANTENNA 1"
                 rx_ret = RX_STATUS_WWVB_RX_OK_ANT1
-                rx_ant = 1
         if (status0 & 0x10) != 0:
                 print "read_rx_wwvb_device: status0 reg: LEAP second flag indicator"
         if (status0 & 0x60) != 0:
                 print "read_rx_wwvb_device: status0 reg: DST flags set"
         if (status0 & 0x80) != 0:
                 # FIXME: we do not handle tracking mode yet
-                print "read_rx_wwvb_device: status0 reg: **** TRACKING FLAG SET UNEXPECTEDLY ****"
+                print "read_rx_wwvb_device: status0 reg: **** INTERNAL ERROR: TRACKING FLAG SET UNEXPECTEDLY ****"
                 disable_wwvb_device()
-                wwvb_emit_stats(RX_STATUS_WWVB_BAD_STATUS0, 0, rx_timestamp, "", 0, 0.0)
+                wwvb_emit_clockstats(RX_STATUS_WWVB_BAD_STATUS0, rx_ant, rx_timestamp)
                 return RX_STATUS_WWVB_BAD_STATUS0
         year_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_YEAR_REG), offset = 2000)
         month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_MONTH_REG))
@@ -405,36 +441,32 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         # machine readable line for automated parsing and analysis
         # no other text printed by this tool begins with RX_WWVB
         # emit machine readable stat
-        wwvb_emit_stats(rx_ret, rx_ant, rx_timestamp, wwvb_time_txt, wwvb_time_secs, wwvb_delta_rx_timestamp_ms)
+        wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_txt, wwvb_time_secs, wwvb_delta_rx_timestamp_ms)
         #
         # that's all folks!
         #
         return rx_ret
 
 #
-# RX time -- currently the only exposed API
+# main entry point - read rx timestamp from wwvb
 #
 def rx_wwvb_device(rx_params):
         #
         # INITIALIZE EVERSET WWVB RECEIVER
         #
-        print "rx_wwvb_device: initializing, rx_params=" + str(rx_params)
         bus = init_wwvb_device()
         #
         # START EVERSET WWVB RECEIVER RX OPERATION
         #
-        print "rx_wwvb_device: starting rx operation"
         start_rx_wwvb_device(bus, rx_params)
         #
         # WAIT FOR RX COMPLETE ON EVERSET WWVB RECEIVER
         #
-        print "rx_wwvb_device: wait for rx operation to complete"
         rx_timestamp = wait_rx_wwvb_device(bus)
-        print "rx_wwvb_device: rx operation complete: " + str(rx_timestamp)
         if rx_timestamp < 0:
-                print "rx_wwvb_device: ERROR: rx operation timeout"
+                print "rx_wwvb_device: rx operation timeout at " + time.time()
                 disable_wwvb_device()
-                wwvb_emit_stats(RX_STATUS_WWVB_TIMEOUT, 0, rx_timestamp, "", 0, 0.0)
+                wwvb_emit_clockstats(RX_STATUS_WWVB_TIMEOUT, 0, time.time())
                 return RX_STATUS_WWVB_TIMEOUT
         #
         # RX COMPLETE, READ DATETIME TIMESTAMP FROM EVERSET WWVB RECEIVER
@@ -448,6 +480,25 @@ def rx_wwvb_device(rx_params):
         disable_wwvb_device()
         return rx_ret
 
+#
+# emit machine readable rx stats line
+#
+def wwvb_emit_rx_stats(rx_loop, rx_stats):
+        rx_total = rx_stats[RX_STATUS_WWVB_RX_OK_ANT1] + rx_stats[RX_STATUS_WWVB_RX_OK_ANT2]
+        rx_total = rx_total + rx_stats[RX_STATUS_WWVB_TIMEOUT]
+        rx_total = rx_total + rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA] + rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]
+        rx_total = rx_total + rx_stats[RX_STATUS_WWVB_BAD_STATUS0] + rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX]
+        #
+        rx_s = RX_STATUS_WWVB_STR[RX_STATUS_WWVB_RX_OK_ANT1] + "," + str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT1]) + ","
+        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_RX_OK_ANT2] + "," + str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT2]) + ","
+        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_TIMEOUT] + "," + str(rx_stats[RX_STATUS_WWVB_TIMEOUT]) + ","
+        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_IRQ_NO_DATA] + "," + str(rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA]) + ","
+        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_BAD_IRQ_STATUS] + "," + str(rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]) + ","
+        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_BAD_STATUS0] + "," + str(rx_stats[RX_STATUS_WWVB_BAD_STATUS0]) + ","
+        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_STATUS0_NO_RX] + "," + str(rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX])
+        #
+        # version 1
+        print "RX_WWVB_STAT_COUNTERS,v1," + str(rx_loop) + "," + str(rx_total) + "," + rx_s
 
 def main():
         rx_params = 0
@@ -467,27 +518,21 @@ def main():
                 rx_params = ES100_CONTROL_START_RX_ANT1_ANT2
         rx_stats = [ 0, 0, 0, 0, 0, 0, 0, 0 ]
         rx_loop = 0
+        #
+        # do one time init before entering RX loop
+        #
+        rx_wwvb_device_init()
+        #
+        # RX loop
+        #
         while True:
                 t0 = time.time()
                 rx_ret = rx_wwvb_device(rx_params)
                 t1 = time.time()
                 print "main: rx_loop = " + str(rx_loop) + " complete, rx_ret = " + str(rx_ret) + ", elapsed = " + str(t1-t0)
+                rx_loop = rx_loop + 1
                 rx_stats[rx_ret] = rx_stats[rx_ret] + 1
-                #
-                # machine readable stats line
-                #
-                rx_total = rx_stats[RX_STATUS_WWVB_RX_OK_ANT1] + rx_stats[RX_STATUS_WWVB_RX_OK_ANT2]
-                rx_total = rx_total + rx_stats[RX_STATUS_WWVB_TIMEOUT]
-                rx_total = rx_total + rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA] + rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]
-                rx_total = rx_total + rx_stats[RX_STATUS_WWVB_BAD_STATUS0] + rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX]
-                print "RX_WWVB_STAT_COUNTERS " + str(rx_total) + " ",
-                print RX_STATUS_WWVB_STR[RX_STATUS_WWVB_RX_OK_ANT1] + " " + str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT1]) + " ",
-                print RX_STATUS_WWVB_STR[RX_STATUS_WWVB_RX_OK_ANT2] + " " + str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT2]) + " ",
-                print RX_STATUS_WWVB_STR[RX_STATUS_WWVB_TIMEOUT] + " " + str(rx_stats[RX_STATUS_WWVB_TIMEOUT]) + " ",
-                print RX_STATUS_WWVB_STR[RX_STATUS_WWVB_IRQ_NO_DATA] + " " + str(rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA]) + " ",
-                print RX_STATUS_WWVB_STR[RX_STATUS_WWVB_BAD_IRQ_STATUS] + " " + str(rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]) + " ",
-                print RX_STATUS_WWVB_STR[RX_STATUS_WWVB_BAD_STATUS0] + " " + str(rx_stats[RX_STATUS_WWVB_BAD_STATUS0]) + " ",
-                print RX_STATUS_WWVB_STR[RX_STATUS_WWVB_STATUS0_NO_RX] + " " + str(rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX])
+                wwvb_emit_rx_stats(rx_loop, rx_stats)
                 #
                 # set rx_params for next rx based on current ok_rx
                 # XXX: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
@@ -507,6 +552,5 @@ def main():
                         else:
                                 print "main: rx_loop = " + str(rx_loop) + " RX failed, using other antenna ANT1 for next RX"
                                 rx_params = ES100_CONTROL_START_RX_ANT2
-                rx_loop = rx_loop + 1
 
 main()
