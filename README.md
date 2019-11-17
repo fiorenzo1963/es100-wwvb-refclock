@@ -21,28 +21,29 @@ Major TODO list
 
 ## Using NTP SHM reflock
 
-* **NOTE: SHM driver does not work yet, still a work in progress**
 * Compile included update_shm_one_shot tool
 * Make sure you have passwordless sudo privileges (ugly, will fix)
 * Add this configuration to your /etc/ntp.conf
 ```
 #
-# SHM refclock
+# WWVB SHM external refclock
 #
 server 127.127.28.0 mode 0 prefer
 fudge 127.127.28.0 refid WWVB
 ```
 * Restart ntp
 * Run test code in the background. Make sure you start the test code in the same directory where the tool resides (ugly, will fix)
-* Immediatetly after restart, ntp -q should look like this:
+* Immediatetly after restart, ntp -q should show the WWVB reflock in an unreachable status
+* After a few successful RX updates, the refclock should show as reachable. Example:
 ```
      remote           refid      st t when poll reach   delay   offset  jitter
 ==============================================================================
- SHM(0)          .WWVB.           0 l    -   64    0    0.000    0.000   0.000
- ticktock.pengui .GPS.            1 u   64   64    1    0.379   -0.043   0.002
- pendulum.pengui .GPS.            1 u   62   64    1    0.400    0.029   0.002
- clepsydra.pengu .GSYM.           1 u   64   64    1    0.398    0.042   0.002
+*SHM(0)          .WWVB.           0 l  246   64   50    0.000    0.000   0.002
++ticktock.pengui .GPS.            1 u   41   64  377    0.368   -0.001   0.016
++pendulum.pengui .GPS.            1 u   38   64  377    0.232    0.058   0.032
++clepsydra.pengu .GSYM.           1 u   38   64  377    0.372    0.024   0.013
 ```
+* Due to the high jitter latency of the received WWVB timestamp, it will be several hours before the phase offset goes within 5 milliseconds of UTC(USNO). In the above example, the other stratum-1 clocks are accurate within 10-30 microseconds, so if you have a similar setup, the phase offset of the other clocks should show the offset from UTC(USNO).
 
 ## TODO
 
