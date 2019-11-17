@@ -102,6 +102,9 @@ ES100_CONTROL_START_RX_ANT2_ANT1            = 0x09
 # ES100_CONTROL_START_RX_ANT1_TRACKING        = 0x15
 #
 
+def make_timespec_s(timestamp):
+        return "{0:09.09f}".format(timestamp)
+
 def decode_bcd_byte(raw_bcd, offset = 0):
         val = raw_bcd & 0xf
         val = val + ((raw_bcd >> 4) & 0xf) * 10
@@ -290,13 +293,13 @@ RX_STATUS_WWVB_STR = (
 #       rx_timestamp (unix timestamp with fractional portion)
 #       wwvb_timestamp in ISO format - None if RX error
 #       wwvb_time (unix timestamp) - None if RX error
-#       rx_delta in milliseconds (wwvb_timestamp - rx_timestamp) - None if RX error
+#       rx_delta (wwvb_timestamp - rx_timestamp) - None if RX error
 #
 
-def wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_str = None, wwvb_time = None, wwvb_delta_rx_timestamp_ms = None):
+def wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_str = None, wwvb_time = None, wwvb_delta_rx = None):
         # yikes, use better formatting technique
         rx_s = str(rx_ret) + "," + RX_STATUS_WWVB_STR[rx_ret] + ","
-        rx_s = rx_s + str(rx_ant) + "," + str(rx_timestamp) + ","
+        rx_s = rx_s + str(rx_ant) + "," + make_timespec_s(rx_timestamp) + ","
         #
         # FIXME: add last_rx_timestamp code when this is converted into a class.
         # for now just emit a zero
@@ -308,11 +311,14 @@ def wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_str = None, wwv
         rx_s = rx_s + "0" + ","
         if wwvb_time_str is None:
                 wwvb_time_str = ""
-                wwvb_time = ""
-                wwvb_delta_rx_timestamp_ms = ""
+                wwvb_time_str = ""
+                wwvb_delta_rx_str = ""
+        else:
+                wwvb_time_str = make_timespec_s(wwvb_time)
+                wwvb_delta_rx_str = make_timespec_s(wwvb_delta_rx)
         rx_s = rx_s + wwvb_time_str + ","
-        rx_s = rx_s + str(wwvb_time) + ","
-        rx_s = rx_s + str(wwvb_delta_rx_timestamp_ms)
+        rx_s = rx_s + wwvb_time_str + ","
+        rx_s = rx_s + wwvb_delta_rx_str
         # version 1
         print "RX_WWVB_CLOCKSTATS,v1," + rx_s
         #last_rx_timestamp = rx_timestamp
@@ -499,21 +505,20 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         #
         #
         #
-        wwvb_delta_rx_timestamp_ms = (wwvb_time_secs - rx_timestamp) * 1000.0
-        # print "read_rx_wwvb_device: WWVB_TIME = " + str(wwvb_time)
-        print "read_rx_wwvb_device: WWVB_TIME = " + str(wwvb_time_secs)
+        wwvb_delta_rx = wwvb_time_secs - rx_timestamp
+        print "read_rx_wwvb_device: WWVB_TIME = " + make_timespec_s(wwvb_time_secs)
         print "read_rx_wwvb_device: WWVB_TIME = " + wwvb_time_txt
-        print "read_rx_wwvb_device: delta(WWVB_TIME, rx_timestamp) = " + str(wwvb_delta_rx_timestamp_ms) + " msecs"
+        print "read_rx_wwvb_device: wwwb_delta_rx = " + make_timespec_s(wwvb_delta_rx)
         # machine readable line for automated parsing and analysis
         # no other text printed by this tool begins with RX_WWVB
         # emit machine readable stat
-        wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_txt, wwvb_time_secs, wwvb_delta_rx_timestamp_ms)
+        wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_txt, wwvb_time_secs, wwvb_delta_rx)
         #
         # update NTP SHM segment.
         # FIXME: forking external code is butt-ugly
         # FIXME: should use subprocess.popen
         #
-        update_shm_cmd = "./update_shm_one_shot " + str(wwvb_time_secs) + " " + str(rx_timestamp)
+        update_shm_cmd = "./update_shm_one_shot " + make_timespec_s(wwvb_time_secs) + " " + make_timespec_s(rx_timestamp)
         print "read_rx_wwvb_device: update_shm_cmd = " + update_shm_cmd
         ret = os.system(update_shm_cmd)
         print "read_rx_wwvb_device: update_shm_cmd ret code = " + str(ret)
@@ -542,7 +547,7 @@ def rx_wwvb_device(rx_params):
         if bus == None:
                 print "rx_wwvb_device: ERROR: failed to initialize ES100 device"
                 disable_wwvb_device()
-                wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
+                wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, make_timespec_s(time.time()))
                 return RX_STATUS_WWVB_DEV_INIT_FAILED
         #
         # START EVERSET WWVB RECEIVER RX OPERATION
@@ -555,7 +560,7 @@ def rx_wwvb_device(rx_params):
         if rx_timestamp < 0:
                 print "rx_wwvb_device: rx operation timeout at " + time.time()
                 disable_wwvb_device()
-                wwvb_emit_clockstats(RX_STATUS_WWVB_TIMEOUT, 0, time.time())
+                wwvb_emit_clockstats(RX_STATUS_WWVB_TIMEOUT, 0, make_timespec_s(time.time()))
                 return RX_STATUS_WWVB_TIMEOUT
         #
         # RX COMPLETE, READ DATETIME TIMESTAMP FROM EVERSET WWVB RECEIVER

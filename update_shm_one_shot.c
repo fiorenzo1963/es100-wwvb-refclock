@@ -26,7 +26,11 @@
 
 #include "timespec_ops.h"
 
-#define NTP_UNIT	7	/* must be > 2 and < 16 */
+/*
+ * must be > 2 and < 16.
+ * do you feel lucky, punk?
+ */
+#define NTP_UNIT	13
 
 #define	LEAP_NOWARNING	0x0	/* normal, no leap second warning */
 #define	LEAP_ADDSECOND	0x1	/* last minute of day has 61 seconds */
@@ -115,12 +119,12 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	cnt = sscanf(argv[1], "%ld.%ld", &pps_timestamp_tv_sec, &pps_timestamp_tv_nsec);
+	cnt = sscanf(argv[1], "%ld.%09ld", &pps_timestamp_tv_sec, &pps_timestamp_tv_nsec);
 	if (cnt != 2) {
 		printf("update_shm_one_shot: error: bad format for pps-timestamp\n");
 		exit(2);
 	}
-	cnt = sscanf(argv[2], "%ld.%ld", &local_timestamp_tv_sec, &local_timestamp_tv_nsec);
+	cnt = sscanf(argv[2], "%ld.%09ld", &local_timestamp_tv_sec, &local_timestamp_tv_nsec);
 	if (cnt != 2) {
 		printf("update_shm_one_shot: error: bad format for local-timestamp\n");
 		exit(3);

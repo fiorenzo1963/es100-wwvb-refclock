@@ -22,13 +22,13 @@ Major TODO list
 ## Using NTP SHM reflock
 
 * Compile included update_shm_one_shot tool
-* Add this configuration to your /etc/ntp.conf
+* Add this configuration to your /etc/ntp.conf - bonus points if you know the cultural reference in the conf comment
 ```
 #
-# WWVB SHM unit 7 refclock 
+# WWVB SHM unit 13 refclock  - do you feel lucky, punk?
 #
-server 127.127.28.7 mode 0 prefer
-fudge 127.127.28.7 refid WWVB
+server 127.127.28.13 mode 0 prefer
+fudge 127.127.28.13 refid WWVB
 ```
 * Restart ntp
 * Run test code in the background. Make sure you start the test code in the same directory where the tool resides (ugly, will fix)
@@ -37,12 +37,12 @@ fudge 127.127.28.7 refid WWVB
 ```
      remote           refid      st t when poll reach   delay   offset  jitter
 ==============================================================================
-*SHM(7)          .WWVB.           0 l  673   64    0    0.000    0.000   0.002
-+ticktock.pengui .GPS.            1 u    2   64  377    0.393    0.046   0.023
-+pendulum.pengui .GPS.            1 u   67   64  377    0.379    0.028   0.011
-+clepsydra.pengu .GSYM.           1 u   59   64  377    0.380    0.050   0.014
+*SHM(13)         .WWVB.           0 l  116   64  112    0.000  -40.903 467.161
++ticktock.pengui .GPS.            1 u    4   64  377    0.328   29.130  14.077
++pendulum.pengui .GPS.            1 u    4   64  377    0.374   29.161  14.104
++clepsydra.pengu .GSYM.           1 u   63   64  377    0.369   21.104   8.002
 ```
-* The output of the test code program will show the "count" and "nsamples" field of the NTP SHM segment.
+* The output of the test code program will show the **count** and **nsamples** field of the NTP SHM segment.
 	* The count field is incremented by the tool which updates the timestamp, and should match the count of successful RX
 	* The nsample field is incremented by ntp when it polls the SHM segment.
 * Example:
@@ -52,7 +52,9 @@ update_shm_one_shot: pps=1574030299.000000001 local=1574030299.000000005
 update_shm_oneshot: shm->valid = 0, shm->count = 7, shm->nsamples = 3
 update_shm_oneshot: shm->valid = 1, shm->count = 8, shm->nsamples = 3
 ```
-* Due to the high jitter latency of the received WWVB timestamp, it will be several hours before the phase offset goes within a few tens of milliseconds of UTC(USNO). In the above example, the other stratum-1 clocks are accurate within 10-30 microseconds, so if you have a similar setup, the phase offset of the other clocks should show the offset from UTC(USNO).
+* Due to the high jitter latency of the received WWVB timestamp, it will be quite a while before the phase offset goes within a few tens of milliseconds of UTC(USNO).
+* Add **minpoll** and **maxpoll** parameters if ntp itself cannot figure out a suitable time constant.
+* In the above ntpq output example, the other reference clocks are accurate within 10-30 microseconds, so if you have a similar setup, the phase offset should show the offset from UTC(USNO).
 
 ## TODO
 
