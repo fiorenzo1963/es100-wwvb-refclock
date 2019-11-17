@@ -1,3 +1,5 @@
+* Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191116-1.1
+- Fix state transition timings for DEV_ENABLE (0->1, 1->0)
 * Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191116-1.0
 - Fix antenna selection for next rx
 - Some code cleanup and refactoring

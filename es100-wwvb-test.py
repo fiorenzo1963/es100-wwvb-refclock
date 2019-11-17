@@ -68,6 +68,12 @@ ES100_SECOND_REG            = 0x09
 ES100_NEXT_DST_MONTH_REG    = 0x0A
 ES100_NEXT_DST_DAY_REG      = 0x0B
 ES100_NEXT_DST_HOUR_REG     = 0x0C
+ES100_DEVICE_ID_REG         = 0x0D
+
+#
+# ES100 device ID
+#
+ES100_DEVICE_ID             = 0x10
 
 #
 #
@@ -97,9 +103,6 @@ def str2(val):
         else:
                 return str(val)
 
-def get_gpio_irq():
-        return GPIO.input(GPIO_DEV_IRQ)
-
 def write_wwvb_device(bus, reg, value):
         bus.write_byte_data(ES100_SLAVE_ADDR, reg, value)
         time.sleep(0.005)
@@ -111,37 +114,52 @@ def read_wwvb_device(bus, reg):
         time.sleep(0.005)
         return val
 
+#
+# enable/disable state changes take a significant amount of time.
+# everset data sheet doesn't say how long these transitions should last,
+# but it does seem excessive for this to even taken more than 100 milliseconds
+#
+def gpio_wait_state_change(pin, pin_name, curr_state, curr_state_s, new_state, new_state_s):
+        c = 0
+        print "gpio_wait_state_change: wait for " + pin_name + " state change to " + new_state_s
+        # FIXME: need to timeout this loop
+        while GPIO.input(pin) == curr_state:
+                time.sleep(0.100)
+                c = c + 0.100
+        if c >= 0.200:
+                print "gpio_wait_state_change: WARNING: state change for " + pin_name + " took " + str(c) + " msecs"
+        time.sleep(0.100)
+
+#
+# FIXME: need to do substantial cleanup of this code
+#
 def enable_wwvb_device():
-        #
-        # FIXME: wait util IRQ GPIO pin goes low and add timeout
-        # FIXME: figure out minimum time we have to wait until ES100 is ready
-        #
-        print "enable_wwvb_device: enabling WWVB device (ENABLE=1)"
-        time.sleep(0.5)
-        GPIO.output(GPIO_DEV_ENABLE, GPIO.HIGH)
-        #print "enable_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
-        time.sleep(0.5)
-        #print "enable_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
-        time.sleep(2)
-        #print "enable_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
-        time.sleep(2)
+        if GPIO.input(GPIO_DEV_ENABLE) != 0:
+                # FIXME: handle this error
+                print "enable_wwvb_device: ERROR: WWVB device already enabled"
+        else:
+                print "enable_wwvb_device: enabling WWVB device"
+                if GPIO.input(GPIO_DEV_IRQ) != 0:
+                        # FIXME: need to handle this error
+                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
+                        time.sleep(1.000)
+                GPIO.output(GPIO_DEV_ENABLE, GPIO.HIGH)
+        # while GPIO.input(GPIO_DEV_IRQ) == 0:
+        #         print "disable_wwvb_device: wait for GPIO_IRQ to transition to high"
+        #         time.sleep(0.1)
+        # time.sleep(0.1)
+        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 0, "low", 1, "high")
 
 def disable_wwvb_device():
-        #
-        # FIXME: wait util IRQ GPIO pin goes high and add timeout
-        # FIXME: figure out minimum time we have to wait until ES100 is completeley powered down
-        #
-        print "disable_wwvb_device: disabling WWVB device (ENABLE=0)"
-        GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
-        #print "disable_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
-        time.sleep(0.5)
-        #print "disable_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
-        time.sleep(2)
-        #
-        #print "disable_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
-        time.sleep(2)
-        #print "disable_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
-        time.sleep(2)
+        if GPIO.input(GPIO_DEV_ENABLE) == 0:
+                print "disable_wwvb_device: NOTE: WWVB device already disabled"
+        else:
+                print "disable_wwvb_device: disabling WWVB device"
+                GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
+        # while GPIO.input(GPIO_DEV_IRQ) != 0:
+        #         print "disable_wwvb_device: wait for GPIO_IRQ to transition to low"
+        #         time.sleep(0.1)
+        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
 def set_gpio_pins_wwvb_device():
         #
@@ -150,8 +168,10 @@ def set_gpio_pins_wwvb_device():
         print "set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver"
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(GPIO_DEV_ENABLE, GPIO.OUT)
+        GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
+        time.sleep(1.000)
         GPIO.setup(GPIO_DEV_IRQ, GPIO.IN)
-        time.sleep(0.5)
+        time.sleep(2.000)
         func = GPIO.gpio_function(GPIO_DEV_I2C_SCL_PIN)
         print "set_gpio_pins_wwvb_device: func I2C_SCL_PIN = " + str(func) + "/" + str(GPIO.I2C)
         if func != GPIO.I2C:
@@ -160,16 +180,12 @@ def set_gpio_pins_wwvb_device():
         if func != GPIO.I2C:
                 print "set_gpio_pins_wwvb_device: ERROR: function I2C_SDA_PIN is not GPIO.I2C"
         print "set_gpio_pins_wwvb_device: func I2C_SDA_PIN = " + str(func) + "/" + str(GPIO.I2C)
-        #time.sleep(0.5)
-        #print "set_gpio_pins_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
-        #time.sleep(0.5)
-        #print "set_gpio_pins_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
 
 #
 # main entry point - init
 #
-def rx_wwvb_device_init():
-        print "rx_wwvb_device_init"
+def one_time_init_wwvb_device():
+        print "one_time_init_wwvb_device:"
         GPIO.setwarnings(False)
         #
         # set gpio pins
@@ -179,7 +195,7 @@ def rx_wwvb_device_init():
         # make sure WWVB receiver is powered down
         #
         disable_wwvb_device()
-        print "rx_wwvb_device_init: done"
+        print "one_time_init_wwvb_device: done"
 
 def init_wwvb_device():
         print "init_wwvb_device: initializing ES100 WWVB receiver"
@@ -197,11 +213,17 @@ def init_wwvb_device():
         print "init_wwvb_device: opening i2c bus channel = " + str(I2C_DEV_CHANNEL)
         bus = smbus.SMBus(I2C_DEV_CHANNEL)
         print "init_wwvb_device: i2c_bus_object = " + str(bus)
-        time.sleep(0.5)
-        print "init_wwvb_device: reading from WWVB device"
+        time.sleep(0.100)
+        print "init_wwvb_device: reading from WWVB device address"
         val = bus.read_byte(ES100_SLAVE_ADDR)
-        print "init_wwvb_device: device value = " + str(val)
-        time.sleep(0.5)
+        # value is not important, it only matters to be able to do a single byte read
+        # print "init_wwvb_device: device value = " + str(val)
+        time.sleep(0.100)
+        val = read_wwvb_device(bus, ES100_DEVICE_ID_REG)
+        print "init_wwvb_device: es100_device_id = " + str(val)
+        if val != ES100_DEVICE_ID:
+                print "init_wwvb_device: ERROR: invalid ES100 device_id"
+                return None
         #
         # per EVERSET specs, only read irq_status after IRQ goes low
         #
@@ -210,7 +232,7 @@ def init_wwvb_device():
         print "init_wwvb_device: control1 reg = " + str(read_wwvb_device(bus, ES100_CONTROL1_REG))
         print "init_wwvb_device: status0 reg = " + str(read_wwvb_device(bus, ES100_STATUS0_REG))
         # print "irq_status reg = " + str(read_wwvb_device(ES100_IRQ_STATUS_REG))
-        print "init_wwvb_device: GPIO_IRQ pin = " + str(get_gpio_irq())
+        print "init_wwvb_device: GPIO_IRQ pin = " + str(GPIO.input(GPIO_DEV_IRQ))
         print "init_wwvb_device: done initializing ES100 WWVB receiver"
         return bus
 
@@ -225,6 +247,8 @@ RX_STATUS_WWVB_IRQ_NO_DATA    = 4 # RX done, but data was not received, device r
 RX_STATUS_WWVB_BAD_IRQ_STATUS = 5 # RX done, bad IRQ_STATUS register value
 RX_STATUS_WWVB_BAD_STATUS0    = 6 # RX done, bad STATUS0 register value
 RX_STATUS_WWVB_STATUS0_NO_RX  = 7 # RX done, STATUS0 indicates no data received
+RX_STATUS_WWVB_DEV_INIT_FAILED= 8 # failed to initialize ES100 device (usually failed read from device_id register)
+RX_STATUS_MAX_STATUS          = 8
 
 RX_STATUS_WWVB_STR = (
                 "",
@@ -234,7 +258,8 @@ RX_STATUS_WWVB_STR = (
                 "IRQ_NO_DATA",
                 "BAD_IRQ_STATUS",
                 "WWVB_BAD_STATUS0",
-                "WWVB_STATUS0_NO_RX"
+                "WWVB_STATUS0_NO_RX",
+                "WWVB_DEV_INIT_FAILED"
 )
 
 #
@@ -304,7 +329,7 @@ def wait_rx_wwvb_device(bus):
         rx_time_timeout = rx_start_time + 140
         rx_time_print_debug = 0
         print "wait_rx_wwvb_device:",
-        while get_gpio_irq() != 0:
+        while GPIO.input(GPIO_DEV_IRQ) != 0:
                 #
                 # per EVERSET specs, irq_status cannot be read until GPIO irq pin is low
                 #
@@ -320,13 +345,13 @@ def wait_rx_wwvb_device(bus):
                         irq_status = read_wwvb_device(bus, ES100_IRQ_STATUS_REG)
                         control0 = read_wwvb_device(bus, ES100_CONTROL0_REG)
                         status0 = read_wwvb_device(bus, ES100_STATUS0_REG)
-                        gpio_irq_pin = get_gpio_irq()
+                        gpio_irq_pin = GPIO.input(GPIO_DEV_IRQ)
                         #print "read_rx_wwvb_device: control0 reg = " + str(control0)
                         #print "read_rx_wwvb_device: status0 reg = " + str(status0)
                         #print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
                         print "wait_rx_wwvb_device: TIMEOUT: status0=" + str(status0) + ", " + "irq_status=" + str(irq_status) + ": " + str(time.time() - rx_start_time)
                         return -1
-                time.sleep(0.002)
+                time.sleep(0.001)
                 #
                 # FIXME: how does this method know which pin to look for? right?
                 # GPIO.wait_for_edge(bus, GPIO.FALLING, timeout = 5700)
@@ -348,7 +373,7 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         irq_status = read_wwvb_device(bus, ES100_IRQ_STATUS_REG)
         control0 = read_wwvb_device(bus, ES100_CONTROL0_REG)
         status0 = read_wwvb_device(bus, ES100_STATUS0_REG)
-        gpio_irq_pin = get_gpio_irq()
+        gpio_irq_pin = GPIO.input(GPIO_DEV_IRQ)
         print "read_rx_wwvb_device: control0 reg = " + str(control0)
         print "read_rx_wwvb_device: status0 reg = " + str(status0)
         print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
@@ -380,7 +405,7 @@ def read_rx_wwvb_device(bus, rx_timestamp):
                         wwvb_emit_clockstats(RX_STATUS_WWVB_IRQ_NO_DATA, rx_ant, rx_timestamp)
                         return RX_STATUS_WWVB_IRQ_NO_DATA
                 else:
-                        print "read_rx_wwvb_device: irq_status reg = RX unsuccessful - FAILED"
+                        print "read_rx_wwvb_device: irq_status reg = RX unsuccessful - BAD IRQ STATUS"
                         disable_wwvb_device()
                         wwvb_emit_clockstats(RX_STATUS_WWVB_IRQ_STATUS, rx_ant, rx_timestamp)
                         return RX_STATUS_WWVB_BAD_IRQ_STATUS
@@ -463,6 +488,11 @@ def rx_wwvb_device(rx_params):
         # INITIALIZE EVERSET WWVB RECEIVER
         #
         bus = init_wwvb_device()
+        if bus == None:
+                print "rx_wwvb_device: ERROR: failed to initialize ES100 device"
+                disable_wwvb_device()
+                wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
+                return RX_STATUS_WWVB_DEV_INIT_FAILED
         #
         # START EVERSET WWVB RECEIVER RX OPERATION
         #
@@ -517,13 +547,14 @@ def wwvb_emit_rx_stats(rx_loop, rx_stats):
         rx_total = rx_total + rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA] + rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]
         rx_total = rx_total + rx_stats[RX_STATUS_WWVB_BAD_STATUS0] + rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX]
         #
-        rx_s = RX_STATUS_WWVB_STR[RX_STATUS_WWVB_RX_OK_ANT1] + "," + str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT1]) + ","
-        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_RX_OK_ANT2] + "," + str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT2]) + ","
-        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_TIMEOUT] + "," + str(rx_stats[RX_STATUS_WWVB_TIMEOUT]) + ","
-        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_IRQ_NO_DATA] + "," + str(rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA]) + ","
-        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_BAD_IRQ_STATUS] + "," + str(rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]) + ","
-        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_BAD_STATUS0] + "," + str(rx_stats[RX_STATUS_WWVB_BAD_STATUS0]) + ","
-        rx_s = rx_s + RX_STATUS_WWVB_STR[RX_STATUS_WWVB_STATUS0_NO_RX] + "," + str(rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX])
+        rx_s = str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT1]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT2]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_TIMEOUT]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_BAD_STATUS0]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_DEV_INIT_FAILED])
         #
         # version 1
         print "RX_WWVB_STAT_COUNTERS,v1," + str(rx_loop) + "," + str(rx_total) + "," + rx_s
@@ -544,12 +575,13 @@ def main():
                rx_params = ES100_CONTROL_START_RX_ANT2_ANT1
         if rx_params == 0:
                 rx_params = ES100_CONTROL_START_RX_ANT1_ANT2
-        rx_stats = [ 0, 0, 0, 0, 0, 0, 0, 0 ]
+        # stats
+        rx_stats = [ 0 ] * (RX_STATUS_MAX_STATUS + 1)
         rx_loop = 0
         #
         # do one time init before entering RX loop
         #
-        rx_wwvb_device_init()
+        one_time_init_wwvb_device()
         #
         # RX loop
         #

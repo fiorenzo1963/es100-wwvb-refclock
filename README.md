@@ -89,6 +89,10 @@ ES100 WWVB PIN          WIRE COLOR
 In my current test installation I placed the two antennas at 45 degrees of each other, with the median orientation being loosely pointed to Fort Collins, Colorado. The receiver is located neart Seattle, Washington, at a Great Circle distance of 1577 Km, (980 Mi, 851 Nmi).
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_antennas_and_pi3.jpg)
 
+## ES100 kinks
+
+* During the first two RX cycles the ES100 takes a long time to transition from disabled to enabled and viceversa, upwards of 3 to 6 seconds. The datasheet is silent about these timings
+
 ## First results
 
 * These logs have been taken from 2019-11-15T11:09:18Z to 2019-11-15T22:35:49Z
