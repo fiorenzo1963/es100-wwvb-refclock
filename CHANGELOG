@@ -1,6 +1,11 @@
-* Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191116-1.1
+* Sun Nov 17 2019 Fio Cattaneo <fio@cattaneo.us> 20191117-1.0
+- Wait until GPIO IRQ signal transitions from low to high after RX complete
+- Add utility to update NTP SHM segment
+- Some code cleanup and refactoring
+* Sat Nov 16 2019 Fio Cattaneo <fio@cattaneo.us> 20191116-1.1
 - Fix state transition timings for DEV_ENABLE (0->1, 1->0)
-* Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191116-1.0
+- Some code cleanup and refactoring
+* Sat Nov 16 2019 Fio Cattaneo <fio@cattaneo.us> 20191116-1.0
 - Fix antenna selection for next rx
 - Some code cleanup and refactoring
 * Fri Nov 15 2019 Fio Cattaneo <fio@cattaneo.us> 20191115-1.1

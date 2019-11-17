@@ -3,26 +3,55 @@ Python test code and Shared memory NTP reference clock for Everset es100 WWVB re
 
 ## Description
 This repository contains software to interface with Everset es100 WWVB receiver. This receiver is a dual-antenna software-defined radioclock which gets the timestamp code transmitted by NIST's WWVB 60 kHz radio station in Fort Collins, Colorado.
+
 The test code is written in Python for ease of use, developed and tested on Raspberry PI 3.
 
-Currently only the test code is implemented. Once it becomes feature complete I'll write the NTP SHM refclock driver based on the test code. Using python for test code allows for quick prototyping and can be easily copied and reused for any purposes by anyne who is not familiar with C.
+The code which updates NTP SHM refclock is external and run as sudo. THis is ugly and should be cleaned up, at least it ought to be done in a C library.
 
 The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
 
-Two major functionalities need to be added to the best code before I start writing the NTP reference clock:
+Major TODO list
 * Allow receiver to continue retry operation after being notified that current RX was unsucceful.
 * Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the above feature somewhat moot.
-
-One major limitation of the test code is that it is quite dumb in that it simply polls the WWVB receiver every 2 milliseconds. The NTP reference clock implementation will make use of PPS timestamping for accuracy and efficiency. However actual improvements are likely to be fairly low due to the jitter of the signal itself, which is fairly high.
+* Use PPS timestamps mostly to increase precision but also to avoid polling.
+* Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver.
+* Use a public read-write NTP SHM unit to needing of root privileges
 
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_dual_antennas.jpg)
+
+## Using NTP SHM reflock
+
+* **NOTE: SHM driver does not work yet, still a work in progress**
+* Compile included update_shm_one_shot tool
+* Make sure you have passwordless sudo privileges (ugly, will fix)
+* Add this configuration to your /etc/ntp.conf
+```
+#
+# SHM refclock
+#
+server 127.127.28.0 mode 0 prefer
+fudge 127.127.28.0 refid WWVB
+```
+* Restart ntp
+* Run test code in the background. Make sure you start the test code in the same directory where the tool resides (ugly, will fix)
+* Immediatetly after restart, ntp -q should look like this:
+```
+     remote           refid      st t when poll reach   delay   offset  jitter
+==============================================================================
+ SHM(0)          .WWVB.           0 l    -   64    0    0.000    0.000   0.000
+ ticktock.pengui .GPS.            1 u   64   64    1    0.379   -0.043   0.002
+ pendulum.pengui .GPS.            1 u   62   64    1    0.400    0.029   0.002
+ clepsydra.pengu .GSYM.           1 u   64   64    1    0.398    0.042   0.002
+```
 
 ## TODO
 
 * Need to support continous RX mode.
 * The receiver can trigger an IRQ which simply indicates that RX was unsuccessful, and retry is pending. The current code simply treats this as a timeout and restarts reception.
 * Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported, see datasheet for details.
-* Actually implement shared memory NTP refclock, so the implementation will match the project Description.
+* Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver.
+* Calling external code to update NTP SHM segment is ugly. It should at least be done with a C library called directly from python.
+* See code comments for full FIXME list.
 
 ## CHANGELOG
 
@@ -45,8 +74,10 @@ One major limitation of the test code is that it is quite dumb in that it simply
 * WWVB general information
 	* WWVB Wikipedia https://en.wikipedia.org/wiki/WWVB
 	* NIST's WWVB Page https://www.nist.gov/pml/time-and-frequency-division/radio-stations/wwvb
+	* https://tf.nist.gov/general/pdf/2429.pdf
 	* https://www.febo.com/time-freq/wwvb/index.html
 * Links of interest and related projects
+	* https://ieeexplore.ieee.org/document/1701081
 	* https://www.ion.org/publications/abstract.cfm?articleID=15622
 	* http://www.leapsecond.com/pages/sony-wwvb/
 	* https://www.raspberrypi.org/forums/viewtopic.php?t=20968

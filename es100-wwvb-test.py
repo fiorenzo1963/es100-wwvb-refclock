@@ -2,6 +2,7 @@
 
 #
 # Simple python code to test ES100 WWVB receiver.
+# Ths code tries to update NTP SHM segment, if any.
 #
 # This code has been developed and tested using Raspberry PI 3. Your mileage may vary.
 #
@@ -15,12 +16,14 @@
 #
 # TODO: major issues to be fixed:
 #
-# (A) Need to support continous RX mode.
-# (B) The receiver can trigger an IRQ which simply indicates that RX was unsuccessful,
+# (A) Handle IO errors when reading/writing I2C device
+# (B) Need to support continous RX mode.
+# (C) The receiver can trigger an IRQ which simply indicates that RX was unsuccessful,
 #     and retry is pending. The current code simply treats this as a timeout and restarts reception.
-# (C) Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported,
+# (D) Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported,
 #     see datasheet for details.
-# (D) Figure out best antenna strategy. This is probably best done later on once we have SHM NTP refclock.
+# (E) Figure out best antenna strategy.
+# (F) Forking external code to update NTP SHM segment is ugly.
 #
 # TODO: minor issues to be fixed:
 #
@@ -32,6 +35,7 @@ import RPi.GPIO as GPIO
 import smbus
 import time
 import sys
+import os
 
 #
 # The next five constants depend on which Raspberry PI's IC2BUS and GPIO pins the device is actually wired to.
@@ -43,6 +47,12 @@ GPIO_DEV_I2C_SDA_PIN        = 3         # I2C SDA pin
 GPIO_DEV_I2C_SCL_PIN        = 5         # I2C SCL pin
 GPIO_DEV_ENABLE             = 7         # device ENABLE pin connected to physical pin 7
 GPIO_DEV_IRQ                = 11        # device IRQ connected to physical pin 9
+KILOMETERS_FROM_FTCOLLINS_CO= 1568      # great circle distance from Fort Collins, Colorado, kilometers
+
+#
+# from https://ieeexplore.ieee.org/document/1701081
+#
+SPEED_OF_LIGHT_OVERLAND     = 299250
 
 #
 # Constants for EVERSET WWVB receiver copied from es100_host_arduino.c,
@@ -103,10 +113,16 @@ def str2(val):
         else:
                 return str(val)
 
+#
+# FIXME: need to handle IO errors
+#
 def write_wwvb_device(bus, reg, value):
         bus.write_byte_data(ES100_SLAVE_ADDR, reg, value)
         time.sleep(0.005)
 
+#
+# FIXME: need to handle IO errors
+#
 def read_wwvb_device(bus, reg):
         bus.write_byte(ES100_SLAVE_ADDR, reg)
         time.sleep(0.005)
@@ -124,11 +140,11 @@ def gpio_wait_state_change(pin, pin_name, curr_state, curr_state_s, new_state, n
         print "gpio_wait_state_change: wait for " + pin_name + " state change to " + new_state_s
         # FIXME: need to timeout this loop
         while GPIO.input(pin) == curr_state:
-                time.sleep(0.100)
-                c = c + 0.100
-        if c >= 0.200:
+                time.sleep(0.005)
+                c = c + 0.005
+        if c >= 0.050:
                 print "gpio_wait_state_change: WARNING: state change for " + pin_name + " took " + str(c) + " secs"
-        time.sleep(0.100)
+        time.sleep(0.050)
 
 #
 # FIXME: need to do substantial cleanup of this code
@@ -445,12 +461,18 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_HOUR_REG))
         minute_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_MINUTE_REG))
         second_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_SECOND_REG))
+        next_dst_month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_MONTH_REG))
+        next_dst_day_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_DAY_REG))
+        next_dst_hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_HOUR_REG))
         #print "read_rx_wwvb_device: YEAR_REG   = " + str(year_reg)
         #print "read_rx_wwvb_device: MONTH_REG  = " + str2(month_reg)
         #print "read_rx_wwvb_device: DAY_REG    = " + str2(day_reg)
         #print "read_rx_wwvb_device: HOUR_REG   = " + str2(hour_reg)
         #print "read_rx_wwvb_device: MINUTE_REG = " + str2(minute_reg)
         #print "read_rx_wwvb_device: SECOND_REG = " + str2(second_reg)
+        #print "read_rx_wwvb_device: NEXT_DST_MONTH_REG = " + str2(next_dst_month_reg)
+        #print "read_rx_wwvb_device: NEXT_DST_DAY_REG   = " + str2(next_dst_day_reg)
+        #print "read_rx_wwvb_device: NEXT_DST_HOUR_REG  = " + str2(next_dst_hour_reg)
         # FIXME: use a time format method instead of this
         wwvb_time = (
                         year_reg,
@@ -467,6 +489,16 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         wwvb_time_txt = wwvb_time_txt + str2(hour_reg) + "-" + str2(minute_reg) + "-" + str2(second_reg)
         wwvb_time_txt = wwvb_time_txt + "Z"
         wwvb_time_secs = time.mktime(wwvb_time)
+        #
+        # adjust for great circle distance from Ft Collins
+        # radio wave speed in earth's atmosphere is roughly the same as the distance in vacuum
+        #
+        distance_delay = (KILOMETERS_FROM_FTCOLLINS_CO * 1.0) / (SPEED_OF_LIGHT_OVERLAND * 1.0)
+        print "read_rx_wwvb_device: adjusting wwvb timestamp for distance_delay = " + str(distance_delay)
+        wwvb_time_secs = wwvb_time_secs + distance_delay
+        #
+        #
+        #
         wwvb_delta_rx_timestamp_ms = (wwvb_time_secs - rx_timestamp) * 1000.0
         # print "read_rx_wwvb_device: WWVB_TIME = " + str(wwvb_time)
         print "read_rx_wwvb_device: WWVB_TIME = " + str(wwvb_time_secs)
@@ -476,6 +508,25 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         # no other text printed by this tool begins with RX_WWVB
         # emit machine readable stat
         wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_txt, wwvb_time_secs, wwvb_delta_rx_timestamp_ms)
+        #
+        # update NTP SHM segment.
+        # FIXME: forking external code is butt-ugly
+        # FIXME: using sudo is butt-ugly
+        # FIXME: should use subprocess.popen
+        #
+        update_shm_cmd = "sudo ./update_shm_one_shot " + str(wwvb_time_secs) + " " + str(rx_timestamp)
+        print "read_rx_wwvb_device: update_shm_cmd = " + update_shm_cmd
+        ret = os.system(update_shm_cmd)
+        print "read_rx_wwvb_device: update_shm_cmd ret code = " + str(ret)
+        #
+        #
+        # FIXME FIXME FIXME
+        # from the datasheet it's not quite clear how the ES100 knows when to restart the RX and raise IRQ line again.
+        # datasheet says ES100 will start rx after IRS status and timestamp and next dst registers are read, but
+        # it's scant in details on exactly what trigers the RX restart.
+        # it also doesn't say whether code should do single register reads or multi-byte reads
+        #
+        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 0, "low", 1, "high")
         #
         # that's all folks!
         #

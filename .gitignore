@@ -1,4 +1,4 @@
 *.log
 *.out
 *.o
-core
+update_shm_one_shot
