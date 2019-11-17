@@ -6,7 +6,7 @@ This repository contains software to interface with Everset es100 WWVB receiver.
 
 The test code is written in Python for ease of use, developed and tested on Raspberry PI 3.
 
-The code which updates NTP SHM refclock is external and run as sudo. THis is ugly and should be cleaned up, at least it ought to be done in a C library.
+The code which updates NTP SHM refclock is external. This is ugly and should be cleaned up.
 
 The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
 
@@ -22,14 +22,13 @@ Major TODO list
 ## Using NTP SHM reflock
 
 * Compile included update_shm_one_shot tool
-* Make sure you have passwordless sudo privileges (ugly, will fix)
 * Add this configuration to your /etc/ntp.conf
 ```
 #
-# WWVB SHM external refclock
+# WWVB SHM unit 7 refclock 
 #
-server 127.127.28.0 mode 0 prefer
-fudge 127.127.28.0 refid WWVB
+server 127.127.28.7 mode 0 prefer
+fudge 127.127.28.7 refid WWVB
 ```
 * Restart ntp
 * Run test code in the background. Make sure you start the test code in the same directory where the tool resides (ugly, will fix)
@@ -38,12 +37,22 @@ fudge 127.127.28.0 refid WWVB
 ```
      remote           refid      st t when poll reach   delay   offset  jitter
 ==============================================================================
-*SHM(0)          .WWVB.           0 l  246   64   50    0.000    0.000   0.002
-+ticktock.pengui .GPS.            1 u   41   64  377    0.368   -0.001   0.016
-+pendulum.pengui .GPS.            1 u   38   64  377    0.232    0.058   0.032
-+clepsydra.pengu .GSYM.           1 u   38   64  377    0.372    0.024   0.013
+*SHM(7)          .WWVB.           0 l  673   64    0    0.000    0.000   0.002
++ticktock.pengui .GPS.            1 u    2   64  377    0.393    0.046   0.023
++pendulum.pengui .GPS.            1 u   67   64  377    0.379    0.028   0.011
++clepsydra.pengu .GSYM.           1 u   59   64  377    0.380    0.050   0.014
 ```
-* Due to the high jitter latency of the received WWVB timestamp, it will be several hours before the phase offset goes within 5 milliseconds of UTC(USNO). In the above example, the other stratum-1 clocks are accurate within 10-30 microseconds, so if you have a similar setup, the phase offset of the other clocks should show the offset from UTC(USNO).
+* The output of the test code program will show the "count" and "nsamples" field of the NTP SHM segment.
+	* The count field is incremented by the tool which updates the timestamp, and should match the count of successful RX
+	* The nsample field is incremented by ntp when it polls the SHM segment.
+* Example:
+```
+read_rx_wwvb_device: update_shm_cmd = ./update_shm_one_shot 1574030299.01 1574030299.05
+update_shm_one_shot: pps=1574030299.000000001 local=1574030299.000000005
+update_shm_oneshot: shm->valid = 0, shm->count = 7, shm->nsamples = 3
+update_shm_oneshot: shm->valid = 1, shm->count = 8, shm->nsamples = 3
+```
+* Due to the high jitter latency of the received WWVB timestamp, it will be several hours before the phase offset goes within a few tens of milliseconds of UTC(USNO). In the above example, the other stratum-1 clocks are accurate within 10-30 microseconds, so if you have a similar setup, the phase offset of the other clocks should show the offset from UTC(USNO).
 
 ## TODO
 

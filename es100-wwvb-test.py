@@ -511,10 +511,9 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         #
         # update NTP SHM segment.
         # FIXME: forking external code is butt-ugly
-        # FIXME: using sudo is butt-ugly
         # FIXME: should use subprocess.popen
         #
-        update_shm_cmd = "sudo ./update_shm_one_shot " + str(wwvb_time_secs) + " " + str(rx_timestamp)
+        update_shm_cmd = "./update_shm_one_shot " + str(wwvb_time_secs) + " " + str(rx_timestamp)
         print "read_rx_wwvb_device: update_shm_cmd = " + update_shm_cmd
         ret = os.system(update_shm_cmd)
         print "read_rx_wwvb_device: update_shm_cmd ret code = " + str(ret)

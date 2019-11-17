@@ -26,6 +26,8 @@
 
 #include "timespec_ops.h"
 
+#define NTP_UNIT	7	/* must be > 2 and < 16 */
+
 #define	LEAP_NOWARNING	0x0	/* normal, no leap second warning */
 #define	LEAP_ADDSECOND	0x1	/* last minute of day has 61 seconds */
 #define	LEAP_DELSECOND	0x2	/* last minute of day has 59 seconds */
@@ -59,16 +61,16 @@ struct shm_time *get_shmseg()
 	struct shm_time *shm;
 	int shmid;
 
-	shmid = shmget(0x4e545030, sizeof (struct shm_time), IPC_CREAT | 0600);
+	shmid = shmget((0x4e545030 | NTP_UNIT), sizeof (struct shm_time), IPC_CREAT | 0666);
 	/* printf("shmid = %d\n", shmid); */
 	if (shmid == -1) {
-		printf("update_shm_oneshot: error: shmget (unit 0): %s\n", strerror(errno));
+		printf("update_shm_oneshot: error: shmget (unit %d): %s\n", strerror(errno), NTP_UNIT);
 		exit(3);
 	}
 	shm = (struct shm_time *)shmat(shmid, 0, 0);
 	/* printf("shm = %p\n", shm); */
 	if (shm == (struct shm_time *)-1) {
-		printf("update_shm_oneshot: error: shmat (unit 0): %s\n", strerror(errno));
+		printf("update_shm_oneshot: error: shmat (unit %d): %s\n", strerror(errno), NTP_UNIT);
 		exit(4);
 	}
 	return shm;
