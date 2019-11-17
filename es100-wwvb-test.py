@@ -127,7 +127,7 @@ def gpio_wait_state_change(pin, pin_name, curr_state, curr_state_s, new_state, n
                 time.sleep(0.100)
                 c = c + 0.100
         if c >= 0.200:
-                print "gpio_wait_state_change: WARNING: state change for " + pin_name + " took " + str(c) + " msecs"
+                print "gpio_wait_state_change: WARNING: state change for " + pin_name + " took " + str(c) + " secs"
         time.sleep(0.100)
 
 #
@@ -135,30 +135,32 @@ def gpio_wait_state_change(pin, pin_name, curr_state, curr_state_s, new_state, n
 #
 def enable_wwvb_device():
         if GPIO.input(GPIO_DEV_ENABLE) != 0:
-                # FIXME: handle this error
+                # FIXME: this is an error and shouldn't happen
                 print "enable_wwvb_device: ERROR: WWVB device already enabled"
         else:
                 print "enable_wwvb_device: enabling WWVB device"
                 if GPIO.input(GPIO_DEV_IRQ) != 0:
-                        # FIXME: need to handle this error
+                        # README FIXME: need to handle this error -- this is almost for sure due to a race
+                        # condition in handling IRQ going low in the RX path. probably need to wait
+                        # until IRQ goes high again before exiting the RX path
+                        # FIXME 2: should also read the datasheet again very carefully to understand the IRQ
+                        # transitions, maybe i'm missing something
+                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
+                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
                         print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
                         time.sleep(1.000)
                 GPIO.output(GPIO_DEV_ENABLE, GPIO.HIGH)
-        # while GPIO.input(GPIO_DEV_IRQ) == 0:
-        #         print "disable_wwvb_device: wait for GPIO_IRQ to transition to high"
-        #         time.sleep(0.1)
-        # time.sleep(0.1)
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 0, "low", 1, "high")
 
+#
+# see README comment in enable_wwvb_device -- need to handle QPIO_IRQ possibly bouncing a bit
+#
 def disable_wwvb_device():
         if GPIO.input(GPIO_DEV_ENABLE) == 0:
                 print "disable_wwvb_device: NOTE: WWVB device already disabled"
         else:
                 print "disable_wwvb_device: disabling WWVB device"
                 GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
-        # while GPIO.input(GPIO_DEV_IRQ) != 0:
-        #         print "disable_wwvb_device: wait for GPIO_IRQ to transition to low"
-        #         time.sleep(0.1)
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
 def set_gpio_pins_wwvb_device():
@@ -214,10 +216,9 @@ def init_wwvb_device():
         bus = smbus.SMBus(I2C_DEV_CHANNEL)
         print "init_wwvb_device: i2c_bus_object = " + str(bus)
         time.sleep(0.100)
-        print "init_wwvb_device: reading from WWVB device address"
-        val = bus.read_byte(ES100_SLAVE_ADDR)
+        print "init_wwvb_device: doing dummy read WWVB device address"
         # value is not important, it only matters to be able to do a single byte read
-        # print "init_wwvb_device: device value = " + str(val)
+        dummy_val = bus.read_byte(ES100_SLAVE_ADDR)
         time.sleep(0.100)
         val = read_wwvb_device(bus, ES100_DEVICE_ID_REG)
         print "init_wwvb_device: es100_device_id = " + str(val)
