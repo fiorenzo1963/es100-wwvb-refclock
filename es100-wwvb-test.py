@@ -143,6 +143,7 @@ def str2(val):
 def write_wwvb_device(bus, reg, value):
         bus.write_byte_data(ES100_SLAVE_ADDR, reg, value)
         time.sleep(0.005)
+        time.sleep(0.005) # EXTRA -- DEBUG
 
 #
 # FIXME: need to handle IO errors
@@ -150,8 +151,10 @@ def write_wwvb_device(bus, reg, value):
 def read_wwvb_device(bus, reg):
         bus.write_byte(ES100_SLAVE_ADDR, reg)
         time.sleep(0.005)
+        time.sleep(0.005) # EXTRA -- DEBUG
         val = bus.read_byte(ES100_SLAVE_ADDR)
         time.sleep(0.005)
+        time.sleep(0.005) # EXTRA -- DEBUG
         return val
 
 #
@@ -215,6 +218,7 @@ def disable_wwvb_device(deep_disable = False):
         if deep_disable is True:
                 print "disable_wwvb_device: deep disable"
                 time.sleep(4.000)
+                time.sleep(4.000) # EXTRA -- DEBUG
                 print "disable_wwvb_device: deep disable done"
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
@@ -224,13 +228,14 @@ def set_gpio_pins_wwvb_device():
         #
         print "set_gpio_pins_wwvb_device: setting GPIO pins for WWVB receiver"
         GPIO.setmode(GPIO.BOARD)
+        GPIO.setup(GPIO_DEV_IRQ, GPIO.IN, GPIO.PUD_DOWN)
+        time.sleep(0.100)
         GPIO.setup(GPIO_DEV_ENABLE, GPIO.OUT)
         GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
         #
         # per datasheet, ES100 digital pins float when DEV_ENABLE is disabled,
         # so setup DEV_IRQ as pullup to avoid spurious DEV_IRQ values
         #
-        GPIO.setup(GPIO_DEV_IRQ, GPIO.IN, GPIO.PUD_DOWN)
         func = GPIO.gpio_function(GPIO_DEV_I2C_SCL_PIN)
         print "set_gpio_pins_wwvb_device: func I2C_SCL_PIN = " + str(func) + "/" + str(GPIO.I2C)
         if func != GPIO.I2C:
@@ -251,6 +256,7 @@ def set_gpio_pins_wwvb_device():
         # make sure IRQ is low
         #
         time.sleep(0.500)
+        time.sleep(2.000) # EXTRA DEBUG
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
 #
