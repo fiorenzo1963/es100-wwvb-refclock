@@ -52,9 +52,15 @@ update_shm_one_shot: pps=1574030299.000000001 local=1574030299.000000005
 update_shm_oneshot: shm->valid = 0, shm->count = 7, shm->nsamples = 3
 update_shm_oneshot: shm->valid = 1, shm->count = 8, shm->nsamples = 3
 ```
-* Due to the high jitter latency of the received WWVB timestamp, it will be quite a while before the phase offset goes within a few tens of milliseconds of UTC(USNO).
-* Add **minpoll** and **maxpoll** parameters if ntp itself cannot figure out a suitable time constant.
-* In the above ntpq output example, the other reference clocks are accurate within 10-30 microseconds, so if you have a similar setup, the phase offset should show the offset from UTC(USNO).
+* Due to the high jitter latency of the received WWVB timestamp, it will be a while before the phase offset goes within a few tens of milliseconds of UTC(USNO). This is what ntpq shows after about one hour of nearly continous WWVB signal reception:
+```
+     remote           refid      st t when poll reach   delay   offset  jitter
+==============================================================================
+*SHM(13)         .WWVB.           0 l  572   64    0    0.000   -1.097  22.206
++ticktock.pengui .GPS.            1 u   29   64  377    0.393   -7.504   1.884
++pendulum.pengui .GPS.            1 u   26   64  377    0.403   -8.253   2.391
++clepsydra.pengu .GSYM.           1 u   19   64  377    0.328   -8.302   2.379
+```
 
 ## TODO
 
