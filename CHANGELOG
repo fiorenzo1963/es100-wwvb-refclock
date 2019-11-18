@@ -1,3 +1,5 @@
+* Mon Nov 18 2019 Fio Cattaneo <fio@cattaneo.us> 20191118-1.2
+- Add MJD timestamps to clockstats. Some minor cleanup.
 * Mon Nov 18 2019 Fio Cattaneo <fio@cattaneo.us> 20191118-1.1
 - Fix minor typos. Update README.
 * Mon Nov 18 2019 Fio Cattaneo <fio@cattaneo.us> 20191118-1.0
