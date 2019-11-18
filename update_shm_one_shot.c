@@ -68,13 +68,13 @@ struct shm_time *get_shmseg()
 	shmid = shmget((0x4e545030 | NTP_UNIT), sizeof (struct shm_time), IPC_CREAT | 0666);
 	/* printf("shmid = %d\n", shmid); */
 	if (shmid == -1) {
-		printf("update_shm_oneshot: error: shmget (unit %d): %s\n", strerror(errno), NTP_UNIT);
+		printf("update_shm_one_shot: error: shmget (unit %d): %s\n", strerror(errno), NTP_UNIT);
 		exit(3);
 	}
 	shm = (struct shm_time *)shmat(shmid, 0, 0);
 	/* printf("shm = %p\n", shm); */
 	if (shm == (struct shm_time *)-1) {
-		printf("update_shm_oneshot: error: shmat (unit %d): %s\n", strerror(errno), NTP_UNIT);
+		printf("update_shm_one_shot: error: shmat (unit %d): %s\n", strerror(errno), NTP_UNIT);
 		exit(4);
 	}
 	return shm;
@@ -84,7 +84,7 @@ void update_shm(const struct timespec *pps_ts, const struct timespec *local_ts)
 {
 	struct shm_time *shm = get_shmseg();
 
-	printf("update_shm_oneshot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
+	printf("update_shm_ones_hot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
 	atomic_thread_fence(memory_order_seq_cst);
 	shm->valid = 0;
 	atomic_thread_fence(memory_order_seq_cst);
@@ -100,7 +100,7 @@ void update_shm(const struct timespec *pps_ts, const struct timespec *local_ts)
 	atomic_thread_fence(memory_order_seq_cst);
 	shm->valid = 1;
 	atomic_thread_fence(memory_order_seq_cst);
-	printf("update_shm_oneshot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
+	printf("update_shm_one_shot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
 }
 
 int main(int argc, char **argv)

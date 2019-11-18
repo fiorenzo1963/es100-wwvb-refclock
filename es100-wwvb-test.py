@@ -111,10 +111,7 @@ def decode_bcd_byte(raw_bcd, offset = 0):
         return val + offset
 
 def str2(val):
-        if val < 10:
-                return "0" + str(val)
-        else:
-                return str(val)
+        return "{0:02d}".format(val)
 
 #
 # FIXME: need to handle IO errors
@@ -300,7 +297,7 @@ RX_STATUS_WWVB_STR = (
 #       rx_delta (wwvb_timestamp - rx_timestamp) - None if RX error
 #
 
-def wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_str = None, wwvb_time = None, wwvb_delta_rx = None):
+def wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_text = None, wwvb_time = None, wwvb_delta_rx = None):
         # yikes, use better formatting technique
         rx_s = str(rx_ret) + "," + RX_STATUS_WWVB_STR[rx_ret] + ","
         rx_s = rx_s + str(rx_ant) + "," + make_timespec_s(rx_timestamp) + ","
@@ -313,16 +310,16 @@ def wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_str = None, wwv
         # else:
         #        rx_s = rx_s + str(rx_timestamp - last_rx_timestamp) + ","
         rx_s = rx_s + "0" + ","
-        if wwvb_time_str is None:
-                wwvb_time_str = ""
-                wwvb_time_str = ""
-                wwvb_delta_rx_str = ""
+        if wwvb_time_text is None:
+                wwvb_time_text = ""
+                wwvb_time_s = ""
+                wwvb_delta_rx_s = ""
         else:
-                wwvb_time_str = make_timespec_s(wwvb_time)
-                wwvb_delta_rx_str = make_timespec_s(wwvb_delta_rx)
-        rx_s = rx_s + wwvb_time_str + ","
-        rx_s = rx_s + wwvb_time_str + ","
-        rx_s = rx_s + wwvb_delta_rx_str
+                wwvb_time_s = make_timespec_s(wwvb_time)
+                wwvb_delta_rx_s = make_timespec_s(wwvb_delta_rx)
+        rx_s = rx_s + wwvb_time_s + ","
+        rx_s = rx_s + wwvb_time_s + ","
+        rx_s = rx_s + wwvb_delta_rx_text
         # version 1
         print "RX_WWVB_CLOCKSTATS,v1," + rx_s
         #last_rx_timestamp = rx_timestamp
