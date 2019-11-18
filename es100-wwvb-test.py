@@ -197,11 +197,19 @@ def set_gpio_pins_wwvb_device():
         func = GPIO.gpio_function(GPIO_DEV_I2C_SCL_PIN)
         print "set_gpio_pins_wwvb_device: func I2C_SCL_PIN = " + str(func) + "/" + str(GPIO.I2C)
         if func != GPIO.I2C:
-                print "set_gpio_pins_wwvb_device: ERROR: function I2C_SCL_PIN is not GPIO.I2C"
+                #
+                # non recoverable
+                #
+                print "set_gpio_pins_wwvb_device: FATAL ERROR: function I2C_SCL_PIN is not GPIO.I2C"
+                exit(1)
         func = GPIO.gpio_function(GPIO_DEV_I2C_SDA_PIN)
-        if func != GPIO.I2C:
-                print "set_gpio_pins_wwvb_device: ERROR: function I2C_SDA_PIN is not GPIO.I2C"
         print "set_gpio_pins_wwvb_device: func I2C_SDA_PIN = " + str(func) + "/" + str(GPIO.I2C)
+        if func != GPIO.I2C:
+                #
+                # non recoverable
+                #
+                print "set_gpio_pins_wwvb_device: FATAL ERROR: function I2C_SDA_PIN is not GPIO.I2C"
+                exit(1)
 
 #
 # main entry point - init
@@ -317,9 +325,9 @@ def wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_text = None, ww
         else:
                 wwvb_time_s = make_timespec_s(wwvb_time)
                 wwvb_delta_rx_s = make_timespec_s(wwvb_delta_rx)
+        rx_s = rx_s + wwvb_time_text + ","
         rx_s = rx_s + wwvb_time_s + ","
-        rx_s = rx_s + wwvb_time_s + ","
-        rx_s = rx_s + wwvb_delta_rx_text
+        rx_s = rx_s + wwvb_delta_rx_s
         # version 1
         print "RX_WWVB_CLOCKSTATS,v1," + rx_s
         #last_rx_timestamp = rx_timestamp
@@ -626,12 +634,15 @@ def main():
         # XXX: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
         # or asking for ANT2_ANT1 over ANT2
         #
-        if len(sys.argv) > 1 and sys.argv[1] == '1-2': 
-               rx_params = ES100_CONTROL_START_RX_ANT1_ANT2
-        if len(sys.argv) > 1 and sys.argv[1] == '2-1': 
-               rx_params = ES100_CONTROL_START_RX_ANT2_ANT1
+        # if len(sys.argv) > 1 and sys.argv[1] == '1-2': 
+        #        rx_params = ES100_CONTROL_START_RX_ANT1_ANT2
+        # if len(sys.argv) > 1 and sys.argv[1] == '2-1': 
+        #        rx_params = ES100_CONTROL_START_RX_ANT2_ANT1
+        # if rx_params == 0:
+        #         rx_params = ES100_CONTROL_START_RX_ANT1_ANT2
+        #
         if rx_params == 0:
-                rx_params = ES100_CONTROL_START_RX_ANT1_ANT2
+                rx_params = ES100_CONTROL_START_RX_ANT1
         # stats
         rx_stats = [ 0 ] * (RX_STATUS_MAX_STATUS + 1)
         rx_loop = 0
