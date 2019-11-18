@@ -162,15 +162,24 @@ def enable_wwvb_device():
                 if GPIO.input(GPIO_DEV_IRQ) != 0:
                         #
                         # README FIXME: need to handle this error -- it's not clear at why this happens.
-                        # when the device is disabled with GPIO_DEV_ENABLED set to 0, the hardware is
+                        # when the device is disabled with GPIO_DEV_ENABLE set to 0, the hardware is
                         # not supposed to set IRQ high. the disable path always waits for IRQ to go low
                         # before completing.
                         # will probably need to debug this with the oscillscope.
                         #
+                        # README FIXME: news flash: i think i found why. datasheet says that pins float
+                        # while device is disabled, so i've changed the GPIO_DEV_ENABLE to pulldown.
+                        # hopefull this fixes the problem, if it does i'll remove these messages.
+                        #
                         print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
                         print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
                         print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
-                        time.sleep(1.000)
+                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
+                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
+                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
+                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
+                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
+                        time.sleep(4.000)
                 GPIO.output(GPIO_DEV_ENABLE, GPIO.HIGH)
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 0, "low", 1, "high")
 
@@ -185,7 +194,7 @@ def disable_wwvb_device(deep_disable = False):
                 GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
         if deep_disable is True:
                 print "disable_wwvb_device: deep disable"
-                time.sleep(10.000)
+                time.sleep(4.000)
                 print "disable_wwvb_device: deep disable done"
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
@@ -197,7 +206,11 @@ def set_gpio_pins_wwvb_device():
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(GPIO_DEV_ENABLE, GPIO.OUT)
         GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
-        GPIO.setup(GPIO_DEV_IRQ, GPIO.IN)
+        #
+        # per datasheet, ES100 digital pins float when DEV_ENABLE is disabled,
+        # so setup DEV_IRQ as pullup to avoid spurious DEV_IRQ values
+        #
+        GPIO.setup(GPIO_DEV_IRQ, GPIO.IN, GPIO.PUD_DOWN)
         func = GPIO.gpio_function(GPIO_DEV_I2C_SCL_PIN)
         print "set_gpio_pins_wwvb_device: func I2C_SCL_PIN = " + str(func) + "/" + str(GPIO.I2C)
         if func != GPIO.I2C:
