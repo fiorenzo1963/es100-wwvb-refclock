@@ -15,7 +15,7 @@
 #include <stdatomic.h>
 
 /*
- * Manually update SHM segment.
+ * Manually update SHM segment using mode 1.
  * Most of the code here has been stolen from ntpd.
  *
  * Copyright (C) 2019, Fio Cattaneo <fio@cattaneo.us>
@@ -85,9 +85,9 @@ void update_shm(const struct timespec *pps_ts, const struct timespec *local_ts)
 	struct shm_time *shm = get_shmseg();
 
 	printf("update_shm_ones_hot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
-	atomic_thread_fence(memory_order_seq_cst);
 	shm->valid = 0;
 	atomic_thread_fence(memory_order_seq_cst);
+	shm->mode = 1;
 	shm->clock_timestamp_sec = (__int32_t)pps_ts->tv_sec;
 	shm->clock_timestamp_usec = (__int32_t)(pps_ts->tv_nsec / 1000);
 	shm->clock_timestamp_nsec = (__int32_t)pps_ts->tv_nsec;
@@ -99,7 +99,6 @@ void update_shm(const struct timespec *pps_ts, const struct timespec *local_ts)
 	shm->count++;
 	atomic_thread_fence(memory_order_seq_cst);
 	shm->valid = 1;
-	atomic_thread_fence(memory_order_seq_cst);
 	printf("update_shm_one_shot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
 }
 

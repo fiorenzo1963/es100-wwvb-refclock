@@ -10,12 +10,12 @@ The code which updates NTP SHM refclock is external. This is ugly and should be 
 
 The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
 
-Major TODO list
+Major TODO list (updated TODO in es100-wwvb-test.py):
 * Allow receiver to continue retry operation after being notified that current RX was unsucceful.
 * Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the above feature somewhat moot.
-* Use PPS timestamps mostly to increase precision but also to avoid polling.
 * Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver.
 * Use a public read-write NTP SHM unit to needing of root privileges
+* Using /sys/devices to read PPS timestamps is non-portable and needs to be fixed.
 
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_dual_antennas.jpg)
 
@@ -37,10 +37,10 @@ fudge 127.127.28.13 refid WWVB
 ```
      remote           refid      st t when poll reach   delay   offset  jitter
 ==============================================================================
-*SHM(13)         .WWVB.           0 l  116   64  112    0.000  -40.903 467.161
-+ticktock.pengui .GPS.            1 u    4   64  377    0.328   29.130  14.077
-+pendulum.pengui .GPS.            1 u    4   64  377    0.374   29.161  14.104
-+clepsydra.pengu .GSYM.           1 u   63   64  377    0.369   21.104   8.002
+*SHM(13)         .WWVB.           0 l  329   64  240    0.000   -4.031  25.183
++ticktock.pengui .GPS.            1 u   39   64  377    0.361  -18.748   2.061
++pendulum.pengui .GPS.            1 u   25   64  377    0.411  -18.490   2.184
++clepsydra.pengu .GSYM.           1 u   10   64  377    0.374  -16.582   3.385
 ```
 * The output of the test code program will show the **count** and **nsamples** field of the NTP SHM segment.
 	* The count field is incremented by the tool which updates the timestamp, and should match the count of successful RX
@@ -51,15 +51,6 @@ read_rx_wwvb_device: update_shm_cmd = ./update_shm_one_shot 1574030299.01 157403
 update_shm_one_shot: pps=1574030299.000000001 local=1574030299.000000005
 update_shm_oneshot: shm->valid = 0, shm->count = 7, shm->nsamples = 3
 update_shm_oneshot: shm->valid = 1, shm->count = 8, shm->nsamples = 3
-```
-* Due to the high jitter latency of the received WWVB timestamp, it will be a while before the phase offset goes within a few tens of milliseconds of UTC(USNO). This is what ntpq shows after about one hour of nearly continous WWVB signal reception:
-```
-     remote           refid      st t when poll reach   delay   offset  jitter
-==============================================================================
-*SHM(13)         .WWVB.           0 l  572   64    0    0.000   -1.097  22.206
-+ticktock.pengui .GPS.            1 u   29   64  377    0.393   -7.504   1.884
-+pendulum.pengui .GPS.            1 u   26   64  377    0.403   -8.253   2.391
-+clepsydra.pengu .GSYM.           1 u   19   64  377    0.328   -8.302   2.379
 ```
 
 ## TODO

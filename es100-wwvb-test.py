@@ -15,11 +15,6 @@
 # antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the
 # other antenna. The receive timestamp is taken with PPS api when GPIO_IRQ goes low, thus
 # its accuracy does not depend on the I2C bus's baud rate.
-# DELETE_THIS_PART_AFTER_DEBUGGING_PPS
-# This test code is fairly dumb and uses busy-waiting (with 2 millisecond sleep intervals).
-# The NTP refclock will be written in C and will use PPS timestamping for accuracy and efficiency.
-# However any improvement is not likely to be very high, given the jitter of WWVB reception.
-# DONE_DELETE_THIS_PART_AFTER_DEBUGGING_PPS
 #
 # TODO: major issues to be fixed:
 #
@@ -31,6 +26,7 @@
 #     see datasheet for details.
 # (E) Figure out best antenna strategy.
 # (F) Forking external code to update NTP SHM segment is ugly.
+# (G) Using /sys/devices to read PPS timestamps is non-portable and needs to be fixed.
 #
 # TODO: minor issues to be fixed:
 #
