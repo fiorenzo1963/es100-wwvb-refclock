@@ -174,12 +174,16 @@ def enable_wwvb_device():
 #
 # see README comment in enable_wwvb_device -- need to handle QPIO_IRQ possibly bouncing a bit
 #
-def disable_wwvb_device():
+def disable_wwvb_device(deep_disable = False):
         if GPIO.input(GPIO_DEV_ENABLE) == 0:
                 print "disable_wwvb_device: NOTE: WWVB device already disabled"
         else:
                 print "disable_wwvb_device: disabling WWVB device"
                 GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
+        if deep_disable is True:
+                print "disable_wwvb_device: deep disable"
+                time.sleep(10.000)
+                print "disable_wwvb_device: deep disable done"
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
 def set_gpio_pins_wwvb_device():
@@ -215,7 +219,7 @@ def one_time_init_wwvb_device():
         #
         # make sure WWVB receiver is powered down
         #
-        disable_wwvb_device()
+        disable_wwvb_device(deep_disable = True)
         print "one_time_init_wwvb_device: done"
 
 def init_wwvb_device():
@@ -546,7 +550,7 @@ def rx_wwvb_device(rx_params):
         bus = init_wwvb_device()
         if bus == None:
                 print "rx_wwvb_device: ERROR: failed to initialize ES100 device"
-                disable_wwvb_device()
+                disable_wwvb_device(deep_disable = True)
                 wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, make_timespec_s(time.time()))
                 return RX_STATUS_WWVB_DEV_INIT_FAILED
         #
