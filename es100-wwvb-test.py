@@ -81,6 +81,10 @@ ES100_NEXT_DST_HOUR_REG     = 0x0C
 ES100_DEVICE_ID_REG         = 0x0D
 
 #
+# value you get when reading from slave without specifying a register
+#
+ES100_SLAVE_ADDR_VAL        = 0x00
+#
 # ES100 device ID
 #
 ES100_DEVICE_ID             = 0x10
@@ -249,9 +253,15 @@ def init_wwvb_device():
         bus = smbus.SMBus(I2C_DEV_CHANNEL)
         print "init_wwvb_device: i2c_bus_object = " + str(bus)
         time.sleep(0.100)
-        print "init_wwvb_device: doing dummy read WWVB device address"
-        # value is not important, it only matters to be able to do a single byte read
-        dummy_val = bus.read_byte(ES100_SLAVE_ADDR)
+        #
+        # not sure how to call an I2C read which does not specify a source address
+        #
+        es100_slave_addr_val = bus.read_byte(ES100_SLAVE_ADDR)
+        print "init_wwvb_device: es100_slave_addr_val = " + str(es100_slave_addr_val)
+        if es100_slave_addr_val != ES100_SLAVE_ADDR_VAL:
+                print "init_wwvb_device: ERROR: invalid ES100 es100_slave_addr_val"
+                return None
+        #
         time.sleep(0.100)
         val = read_wwvb_device(bus, ES100_DEVICE_ID_REG)
         print "init_wwvb_device: es100_device_id = " + str(val)
@@ -259,14 +269,23 @@ def init_wwvb_device():
                 print "init_wwvb_device: ERROR: invalid ES100 device_id"
                 return None
         #
-        # per EVERSET specs, only read irq_status after IRQ goes low
+        # don't check irq_status register, as it has side effects
         #
-        print "init_wwvb_device: control0 reg = " + str(read_wwvb_device(bus, ES100_CONTROL0_REG))
-        # control 1 register can be read and written, but it's a NOOP
-        print "init_wwvb_device: control1 reg = " + str(read_wwvb_device(bus, ES100_CONTROL1_REG))
-        print "init_wwvb_device: status0 reg = " + str(read_wwvb_device(bus, ES100_STATUS0_REG))
-        # print "irq_status reg = " + str(read_wwvb_device(ES100_IRQ_STATUS_REG))
-        print "init_wwvb_device: GPIO_IRQ pin = " + str(GPIO.input(GPIO_DEV_IRQ))
+        val = read_wwvb_device(bus, ES100_CONTROL0_REG)
+        print "init_wwvb_device: control0 reg = " + str(val)
+        if val != 0:
+                print "init_wwvb_device: ERROR: invalid control0 reg"
+                return None
+        val = read_wwvb_device(bus, ES100_STATUS0_REG)
+        print "init_wwvb_device: status0 reg = " + str(val)
+        if val != 0:
+                print "init_wwvb_device: ERROR: invalid status0 reg"
+                return None
+        val = GPIO.input(GPIO_DEV_IRQ)
+        print "init_wwvb_device: gpio_dev_irq pin = " + str(val)
+        if val != 1:
+                print "init_wwvb_device: ERROR: invalid gpio_dev_irq_pin"
+                return None
         print "init_wwvb_device: done initializing ES100 WWVB receiver"
         return bus
 
@@ -561,7 +580,7 @@ def rx_wwvb_device(rx_params):
         if bus == None:
                 print "rx_wwvb_device: ERROR: failed to initialize ES100 device"
                 disable_wwvb_device(deep_disable = True)
-                wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, make_timespec_s(time.time()))
+                wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
                 return RX_STATUS_WWVB_DEV_INIT_FAILED
         #
         # START EVERSET WWVB RECEIVER RX OPERATION
@@ -574,7 +593,7 @@ def rx_wwvb_device(rx_params):
         if rx_timestamp < 0:
                 print "rx_wwvb_device: rx operation timeout at " + time.time()
                 disable_wwvb_device()
-                wwvb_emit_clockstats(RX_STATUS_WWVB_TIMEOUT, 0, make_timespec_s(time.time()))
+                wwvb_emit_clockstats(RX_STATUS_WWVB_TIMEOUT, 0, time.time())
                 return RX_STATUS_WWVB_TIMEOUT
         #
         # RX COMPLETE, READ DATETIME TIMESTAMP FROM EVERSET WWVB RECEIVER
