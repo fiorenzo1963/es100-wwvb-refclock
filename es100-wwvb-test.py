@@ -10,12 +10,11 @@
 #
 # This code is released under dual GPL Version 2 / FreeBSD license, at your option.
 #
-# DELETE_THIS_PART_AFTER_DEBUGGING_PPS
-# This test code is fairly dumb and uses busy-waiting (with 2 millisecond sleep intervals).
-# The NTP refclock will be written in C and will use PPS timestamping for accuracy and efficiency.
-# However any improvement is not likely to be very high, given the jitter of WWVB reception.
-# DONE_DELETE_THIS_PART_AFTER_DEBUGGING_PPS
-#
+# The test code runs forever and keeps receiving data from WWVB.
+# It starts with user supplied antenna configuration (1, 2), then it keeps using the same
+# antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the
+# other antenna. The receive timestamp is taken with PPS api when GPIO_IRQ goes low, thus
+# its accuracy does not depend on the I2C bus's baud rate.
 # DELETE_THIS_PART_AFTER_DEBUGGING_PPS
 # This test code is fairly dumb and uses busy-waiting (with 2 millisecond sleep intervals).
 # The NTP refclock will be written in C and will use PPS timestamping for accuracy and efficiency.
@@ -149,6 +148,7 @@ def str2(val):
 def write_wwvb_device(bus, reg, value):
         bus.write_byte_data(ES100_SLAVE_ADDR, reg, value)
         time.sleep(0.005)
+        time.sleep(0.005) # EXTRA -- DEBUG
 
 #
 # FIXME: need to handle IO errors
@@ -156,8 +156,10 @@ def write_wwvb_device(bus, reg, value):
 def read_wwvb_device(bus, reg):
         bus.write_byte(ES100_SLAVE_ADDR, reg)
         time.sleep(0.005)
+        time.sleep(0.005) # EXTRA -- DEBUG
         val = bus.read_byte(ES100_SLAVE_ADDR)
         time.sleep(0.005)
+        time.sleep(0.005) # EXTRA -- DEBUG
         return val
 
 #
@@ -221,6 +223,8 @@ def disable_wwvb_device(deep_disable = False):
         if deep_disable is True:
                 print "disable_wwvb_device: deep disable"
                 time.sleep(4.000)
+                time.sleep(4.000) # EXTRA -- DEBUG
+                time.sleep(2.000) # EXTRA -- DEBUG
                 print "disable_wwvb_device: deep disable done"
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
@@ -420,14 +424,16 @@ def start_rx_wwvb_device(bus, rx_params = ES100_CONTROL_START_RX_ANT1_ANT2):
 #
 # wait for RX operation to complete, return RX timestamp on RX, -1 on timeout
 #
-def wait_rx_wwvb_device(bus):
+def wait_rx_wwvb_device(bus, prev_pps_stamp):
         rx_start_time = time.time()
         rx_start_offset = int(rx_start_time) % 60
         print "wait_rx_wwvb_device: time/offset = " + str(rx_start_time) + "/" + str(rx_start_offset)
         c = 0
         rx_time_timeout = rx_start_time + 140
         rx_time_print_debug = 0
+        print "wait_rx_wwvb_device: prev_pps_stamp = " + str(prev_pps_stamp)
         print "wait_rx_wwvb_device:",
+        pps_stamp = prev_pps_stamp
         while GPIO.input(GPIO_DEV_IRQ) != 0:
                 #
                 # per EVERSET specs, irq_status cannot be read until GPIO irq pin is low
@@ -457,6 +463,10 @@ def wait_rx_wwvb_device(bus):
         #
         rx_timestamp = time.time()
         print ""
+        pps_stamp = time_pps_fetch()
+        print "wait_rx_wwvb_device: rx_timestamp = " + make_timespec_s(rx_timestamp)
+        print "wait_rx_wwvb_device: pps_stamp = " + make_timespec_s(pps_stamp[0])
+        print "wait_rx_wwvb_device: pps_stamp = " + str(pps_stamp)
         return rx_timestamp
 
 #
@@ -581,7 +591,7 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         wwvb_delta_rx = wwvb_time_secs - rx_timestamp
         print "read_rx_wwvb_device: WWVB_TIME = " + make_timespec_s(wwvb_time_secs)
         print "read_rx_wwvb_device: WWVB_TIME = " + wwvb_time_txt
-        print "read_rx_wwvb_device: rx_timestamp = " + make_timespec_s(rx_timestamp)
+        print "read_rx_wwvb_device: rx = " + make_timespec_s(rx_timestamp)
         print "read_rx_wwvb_device: wwwb_delta_rx = " + make_timespec_s(wwvb_delta_rx)
         # machine readable line for automated parsing and analysis
         # no other text printed by this tool begins with RX_WWVB
@@ -623,6 +633,7 @@ def rx_wwvb_device(rx_params):
                 disable_wwvb_device(deep_disable = True)
                 wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
                 return RX_STATUS_WWVB_DEV_INIT_FAILED
+        prev_pps_stamp = time_pps_fetch()
         #
         # START EVERSET WWVB RECEIVER RX OPERATION
         #
@@ -630,7 +641,7 @@ def rx_wwvb_device(rx_params):
         #
         # WAIT FOR RX COMPLETE ON EVERSET WWVB RECEIVER
         #
-        rx_timestamp = wait_rx_wwvb_device(bus)
+        rx_timestamp = wait_rx_wwvb_device(bus, prev_pps_stamp)
         if rx_timestamp < 0:
                 print "rx_wwvb_device: rx operation timeout at " + str(time.time())
                 disable_wwvb_device()
