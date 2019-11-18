@@ -38,26 +38,26 @@
 #define	LEAP_NOTINSYNC	0x3	/* overload, clock is free running */
 
 struct shm_time {
-	__int32_t		mode;  /* 0 - if valid is set:
-					*       use values,
-					*       clear valid
-					* 1 - if valid is set:
-					*       if count before and after read of values is equal,
-					*         use values
-					*       clear valid
-					*/
-	volatile __int32_t	count;
-	__int32_t		clock_timestamp_sec;
-	__int32_t		clock_timestamp_usec;
-	__int32_t		receive_timestamp_sec;
-	__int32_t		receive_timestamp_usec;
-	__int32_t		leap;
-	__int32_t		precision;
-	__int32_t		nsamples;
-	volatile __int32_t    	valid;
-	__uint32_t		clock_timestamp_nsec;
-	__uint32_t		receive_timestamp_nsec;
-	__int32_t		dummy[8];
+	int		mode;  /* 0 - if valid is set:
+				*       use values,
+				*       clear valid
+				* 1 - if valid is set:
+				*       if count before and after read of values is equal,
+				*         use values
+				*       clear valid
+				*/
+	volatile int	count;
+	time_t		clock_timestamp_sec;
+	int		clock_timestamp_usec;
+	time_t		receive_timestamp_sec;
+	int		receive_timestamp_usec;
+	int		leap;
+	int		precision;
+	int		nsamples;
+	volatile int   	valid;
+	unsigned int	clock_timestamp_nsec;
+	unsigned int	receive_timestamp_nsec;
+	int		dummy[8];
 };
 
 struct shm_time *get_shmseg()

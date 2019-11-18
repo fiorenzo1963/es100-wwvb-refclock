@@ -8,21 +8,14 @@ The test code is written in Python for ease of use, developed and tested on Rasp
 
 The code which updates NTP SHM refclock is external. This is ugly and should be cleaned up.
 
-The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
-
-Major TODO list (updated TODO in es100-wwvb-test.py):
-* Allow receiver to continue retry operation after being notified that current RX was unsucceful.
-* Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the above feature somewhat moot.
-* Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver.
-* Use a public read-write NTP SHM unit to needing of root privileges
-* Using /sys/devices to read PPS timestamps is non-portable and needs to be fixed.
+The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna (1, 2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is a PPS timestamp when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
 
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_dual_antennas.jpg)
 
 ## Using NTP SHM reflock
 
 * Compile included update_shm_one_shot tool
-* Add this configuration to your /etc/ntp.conf - bonus points if you know the cultural reference in the conf comment
+* Add this configuration to your /etc/ntp.conf
 ```
 #
 # WWVB SHM unit 13 refclock  - do you feel lucky, punk?
@@ -32,7 +25,6 @@ fudge 127.127.28.13 refid WWVB
 ```
 * Restart ntp
 * Run test code in the background. Make sure you start the test code in the same directory where the tool resides (ugly, will fix)
-* Immediatetly after restart, ntp -q should show the WWVB reflock in an unreachable status
 * After a few successful RX updates, the refclock should show as reachable. Example:
 ```
      remote           refid      st t when poll reach   delay   offset  jitter
@@ -42,25 +34,15 @@ fudge 127.127.28.13 refid WWVB
 +pendulum.pengui .GPS.            1 u   25   64  377    0.411  -18.490   2.184
 +clepsydra.pengu .GSYM.           1 u   10   64  377    0.374  -16.582   3.385
 ```
-* The output of the test code program will show the **count** and **nsamples** field of the NTP SHM segment.
-	* The count field is incremented by the tool which updates the timestamp, and should match the count of successful RX
-	* The nsample field is incremented by ntp when it polls the SHM segment.
-* Example:
-```
-read_rx_wwvb_device: update_shm_cmd = ./update_shm_one_shot 1574030299.01 1574030299.05
-update_shm_one_shot: pps=1574030299.000000001 local=1574030299.000000005
-update_shm_oneshot: shm->valid = 0, shm->count = 7, shm->nsamples = 3
-update_shm_oneshot: shm->valid = 1, shm->count = 8, shm->nsamples = 3
-```
 
 ## TODO
 
-* Need to support continous RX mode.
-* The receiver can trigger an IRQ which simply indicates that RX was unsuccessful, and retry is pending. The current code simply treats this as a timeout and restarts reception.
-* Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported, see datasheet for details.
-* Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver.
-* Calling external code to update NTP SHM segment is ugly. It should at least be done with a C library called directly from python.
 * See code comments for full FIXME list.
+* Allow receiver to continue retry operation after being notified that current RX was unsucceful.
+* Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the above feature somewhat moot.
+* Calling external code to update NTP SHM segment is ugly. It should at least be done with a C library called directly from python.
+* Using /sys/devices to read PPS timestamps is non-portable and needs to be fixed. Python ctypes is the magic word.
+* Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver. Python ctypes is the magic word.
 
 ## CHANGELOG
 
@@ -68,8 +50,7 @@ update_shm_oneshot: shm->valid = 1, shm->count = 8, shm->nsamples = 3
 
 ## Acknowledgments
 
-* Many thanks to members of time-nuts mailing list.
-	* Particular thanks to Hal Murray, who is giving me many precious hints and suggestions.
+* Many thanks to members of time-nuts mailing list. Particular thanks to Hal Murray.
 * Many thanks to my wife and daugthers, who somehow think my timekeeping hobby is weird, but still put up with me.
 
 ## Links
@@ -129,9 +110,18 @@ ES100 WWVB PIN          WIRE COLOR
 In my current test installation I placed the two antennas at 45 degrees of each other, with the median orientation being loosely pointed to Fort Collins, Colorado. The receiver is located neart Seattle, Washington, at a Great Circle distance of 1577 Km, (980 Mi, 851 Nmi).
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_antennas_and_pi3.jpg)
 
+## System Configuration
+* Enable I2C
+* Enable SMBUS
+* Enable PPS (PPS should already configured by default, so all you should have to do is make sure that gpio-pps module is loaded at boot time)
+* Setup PPS in /boot/config.txt - note that the pin numbering in /boot/config.txt follows the BCM numbering
+```
+dtoverlay=pps-gpio,gpiopin=17,capture_clear
+```
+
 ## ES100 kinks
 
-* During the first two RX cycles the ES100 takes a long time to transition from disabled to enabled and viceversa, upwards of 3 to 6 seconds. The datasheet is silent about these timings
+* None seen so far. ES100 appears to behave per Everset datasheet specs.
 
 ## First results
 
@@ -264,15 +254,6 @@ In my current test installation I placed the two antennas at 45 degrees of each 
 -27.853012085 msecs
 0.614881515503 msecs
 -24.9390602112 msecs
-```
-
-## System Configuration
-* Enable I2C
-* Enable SMBUS
-* Enable PPS (PPS should already configured by default, so all you should have to do is make sure that gpio-pps module is loaded at boot time)
-* Setup PPS in /boot/config.txt - note that the pin numbering in /boot/config.txt follows the BCM numbering
-```
-dtoverlay=pps-gpio,gpiopin=17,capture_clear
 ```
 
 ## Metrics
