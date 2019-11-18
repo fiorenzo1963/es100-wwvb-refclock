@@ -156,11 +156,13 @@ def enable_wwvb_device():
         else:
                 print "enable_wwvb_device: enabling WWVB device"
                 if GPIO.input(GPIO_DEV_IRQ) != 0:
-                        # README FIXME: need to handle this error -- this is almost for sure due to a race
-                        # condition in handling IRQ going low in the RX path. probably need to wait
-                        # until IRQ goes high again before exiting the RX path
-                        # FIXME 2: should also read the datasheet again very carefully to understand the IRQ
-                        # transitions, maybe i'm missing something
+                        #
+                        # README FIXME: need to handle this error -- it's not clear at why this happens.
+                        # when the device is disabled with GPIO_DEV_ENABLED set to 0, the hardware is
+                        # not supposed to set IRQ high. the disable path always waits for IRQ to go low
+                        # before completing.
+                        # will probably need to debug this with the oscillscope.
+                        #
                         print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
                         print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
                         print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
@@ -191,9 +193,7 @@ def set_gpio_pins_wwvb_device():
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(GPIO_DEV_ENABLE, GPIO.OUT)
         GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
-        time.sleep(1.000)
         GPIO.setup(GPIO_DEV_IRQ, GPIO.IN)
-        time.sleep(2.000)
         func = GPIO.gpio_function(GPIO_DEV_I2C_SCL_PIN)
         print "set_gpio_pins_wwvb_device: func I2C_SCL_PIN = " + str(func) + "/" + str(GPIO.I2C)
         if func != GPIO.I2C:
@@ -210,6 +210,11 @@ def set_gpio_pins_wwvb_device():
                 #
                 print "set_gpio_pins_wwvb_device: FATAL ERROR: function I2C_SDA_PIN is not GPIO.I2C"
                 exit(1)
+        #
+        # make sure IRQ is low
+        #
+        time.sleep(0.500)
+        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
 #
 # main entry point - init
