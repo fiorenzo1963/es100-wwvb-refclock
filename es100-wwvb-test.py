@@ -219,6 +219,7 @@ def disable_wwvb_device(deep_disable = False):
                 print "disable_wwvb_device: deep disable"
                 time.sleep(4.000)
                 time.sleep(4.000) # EXTRA -- DEBUG
+                time.sleep(2.000) # EXTRA -- DEBUG
                 print "disable_wwvb_device: deep disable done"
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
@@ -230,8 +231,10 @@ def set_gpio_pins_wwvb_device():
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(GPIO_DEV_IRQ, GPIO.IN, GPIO.PUD_DOWN)
         time.sleep(0.100)
+        time.sleep(1.000) # DEBUG - COPY THESE TIMEOUTS BACK FROM MASTER
         GPIO.setup(GPIO_DEV_ENABLE, GPIO.OUT)
         GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
+        time.sleep(2.000) # DEBUG - COPY THESE TIMEOUTS BACK FROM MASTER
         #
         # per datasheet, ES100 digital pins float when DEV_ENABLE is disabled,
         # so setup DEV_IRQ as pullup to avoid spurious DEV_IRQ values
