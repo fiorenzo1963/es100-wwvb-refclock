@@ -109,7 +109,7 @@ ES100_CONTROL_START_RX_ANT2_ANT1            = 0x09
 # ES100_CONTROL_START_RX_ANT1_TRACKING        = 0x15
 #
 
-WWB_WAIT_RX_TIMEOUT         = 150
+WWB_WAIT_RX_TIMEOUT         = 200
 
 #
 # FIXME: this is not portable
@@ -446,7 +446,7 @@ def wait_rx_wwvb_device(bus, prev_pps_stamp):
                         #print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
                         print "wait_rx_wwvb_device: TIMEOUT: status0=" + str(status0) + ", irq_status=" + str(irq_status) + ", pps_assert_seq=" + str(pps_stamp[1]) + ": " + str(time.time() - rx_start_time)
                         return -1
-                time.sleep(0.010)
+                time.sleep(0.001)
                 pps_stamp = time_pps_fetch()
         print ""
         print "wait_rx_wwvb_device: pps_stamp = " + str(pps_stamp)
