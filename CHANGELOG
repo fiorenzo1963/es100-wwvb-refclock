@@ -1,6 +1,7 @@
 * Mon Nov 18 2019 Fio Cattaneo <fio@cattaneo.us> 20191118-1.0
 - More robust checking of device state during init
 - Set GPIO IRQ pin to pulldown to avoid spurious IRQ values when device is disabled
+- Use PPS timestamp
 - Let software fully control antenna selection
 * Sun Nov 17 2019 Fio Cattaneo <fio@cattaneo.us> 20191117-1.0
 - Wait until GPIO IRQ signal transitions from low to high after RX complete

@@ -10,13 +10,6 @@ The code which updates NTP SHM refclock is external. This is ugly and should be 
 
 The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna configuration (1, 2, 2-1, 1-2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
 
-Major TODO list
-* Allow receiver to continue retry operation after being notified that current RX was unsucceful.
-* Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the above feature somewhat moot.
-* Use PPS timestamps mostly to increase precision but also to avoid polling.
-* Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver.
-* Use a public read-write NTP SHM unit to needing of root privileges
-
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_dual_antennas.jpg)
 
 ## Using NTP SHM reflock
@@ -64,9 +57,8 @@ update_shm_oneshot: shm->valid = 1, shm->count = 8, shm->nsamples = 3
 
 ## TODO
 
-* Need to support continous RX mode.
-* The receiver can trigger an IRQ which simply indicates that RX was unsuccessful, and retry is pending. The current code simply treats this as a timeout and restarts reception.
-* Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported, see datasheet for details.
+* Allow receiver to continue retry operation after being notified that current RX was unsucceful. It is not clear it this actually works, the timing diagrams in the datasheet only shows single shot RX. It is also not clear wether this will provide actual benefits, as the goal for best performance is to operate in "tracking" mode most of the time.
+* Add tracking mode functionality for improved timestamp reception. Tracking mode does not provide timestamp information, it only uses the top-of-the-minute mark. It works so long as the local clock doesn't drifts more than 4 seconds (per datasheet specs).
 * Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver.
 * Calling external code to update NTP SHM segment is ugly. It should at least be done with a C library called directly from python.
 * See code comments for full FIXME list.
@@ -278,8 +270,10 @@ In my current test installation I placed the two antennas at 45 degrees of each 
 ## System Configuration
 * Enable I2C
 * Enable SMBUS
-* Enable PPS - PPS is configured by default, so all you should have to do is make sure that gpio-pps module is loaded at boot time
-* Setup PPS in /boot/config.txt - note that the pin numbering in /boot/config.txt follows the BCM numbering
+* Enable PPS:
+	* NOTE(1) pin numbering in /boot/config.txt follows the BCM numbering
+	* NOTE(2) PPS is active low
+* How to setup /boot/config.txt:
 ```
 dtoverlay=pps-gpio,gpiopin=17
 dtoverlay=pps-gpio,assert_falling_edge

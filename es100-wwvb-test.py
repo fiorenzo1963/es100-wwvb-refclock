@@ -10,9 +10,11 @@
 #
 # This code is released under dual GPL Version 2 / FreeBSD license, at your option.
 #
-# This test code is fairly dumb and uses busy-waiting (with 2 millisecond sleep intervals).
-# The NTP refclock will be written in C and will use PPS timestamping for accuracy and efficiency.
-# However any improvement is not likely to be very high, given the jitter of WWVB reception.
+# The test code runs forever and keeps receiving data from WWVB.
+# It starts with user supplied antenna configuration (1, 2), then it keeps using the same
+# antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the
+# other antenna. The receive timestamp is taken with PPS api when GPIO_IRQ goes low, thus
+# its accuracy does not depend on the I2C bus's baud rate.
 #
 # TODO: major issues to be fixed:
 #
@@ -46,7 +48,8 @@ I2C_DEV_CHANNEL             = 1         # use I2C channel 1
 GPIO_DEV_I2C_SDA_PIN        = 3         # I2C SDA pin
 GPIO_DEV_I2C_SCL_PIN        = 5         # I2C SCL pin
 GPIO_DEV_ENABLE             = 7         # device ENABLE pin connected to physical pin 7
-GPIO_DEV_IRQ                = 11        # device IRQ connected to physical pin 9
+GPIO_DEV_IRQ                = 11        # device IRQ connected to physical pin 11
+GPIO_DEV_IRQ_PPS_DEVICE     = "pps1"    # name of pps device
 KILOMETERS_FROM_FTCOLLINS_CO= 1568      # great circle distance from Fort Collins, Colorado, kilometers
 
 #
@@ -105,6 +108,23 @@ ES100_CONTROL_START_RX_ANT2_ANT1            = 0x09
 # ES100_CONTROL_START_RX_ANT2_TRACKING        = 0x13
 # ES100_CONTROL_START_RX_ANT1_TRACKING        = 0x15
 #
+
+WWB_WAIT_RX_TIMEOUT         = 150
+
+#
+# FIXME: this is not portable
+#
+def time_pps_fetch():
+        pps_dev = "/sys/devices/virtual/pps/" + GPIO_DEV_IRQ_PPS_DEVICE + "/assert"
+        pps_fd = open(pps_dev, "r")
+        pps_data = pps_fd.readline().replace('\n', '')
+        if pps_data == '':
+                return [ 0.0, 0 ]
+        pps_data_a = pps_data.split('#')
+        pps_stamp = [ 0.0, 0 ]
+        pps_stamp[0] = float(pps_data_a[0])
+        pps_stamp[1] = int(pps_data_a[1])
+        return pps_stamp
 
 def make_timespec_s(timestamp):
         return "{0:09.09f}".format(timestamp)
@@ -310,8 +330,8 @@ RX_STATUS_WWVB_RX_OK_ANT2     = 2 # RX OK, ANTENNA 1
 RX_STATUS_WWVB_TIMEOUT        = 3 # RX timed out
 RX_STATUS_WWVB_IRQ_NO_DATA    = 4 # RX done, but data was not received, device retrying
                                   # FIXME: current code does not allow for device retry
-RX_STATUS_WWVB_BAD_IRQ_STATUS = 5 # RX done, bad IRQ_STATUS register value
-RX_STATUS_WWVB_BAD_STATUS0    = 6 # RX done, bad STATUS0 register value
+RX_STATUS_WWVB_IRQ_STATUS     = 5 # RX done, bad IRQ_STATUS register value
+RX_STATUS_WWVB_STATUS0        = 6 # RX done, bad STATUS0 register value
 RX_STATUS_WWVB_STATUS0_NO_RX  = 7 # RX done, STATUS0 indicates no data received
 RX_STATUS_WWVB_DEV_INIT_FAILED= 8 # failed to initialize ES100 device (usually failed read from device_id register)
 RX_STATUS_MAX_STATUS          = 8
@@ -322,8 +342,8 @@ RX_STATUS_WWVB_STR = (
                 "RX_OK_ANT2",
                 "TIMEOUT",
                 "IRQ_NO_DATA",
-                "BAD_IRQ_STATUS",
-                "WWVB_BAD_STATUS0",
+                "IRQ_STATUS",
+                "WWVB_STATUS0",
                 "WWVB_STATUS0_NO_RX",
                 "WWVB_DEV_INIT_FAILED"
 )
@@ -390,15 +410,21 @@ def start_rx_wwvb_device(bus, rx_params = ES100_CONTROL_START_RX_ANT1_ANT2):
 #
 # wait for RX operation to complete, return RX timestamp on RX, -1 on timeout
 #
-def wait_rx_wwvb_device(bus):
+def wait_rx_wwvb_device(bus, prev_pps_stamp):
         rx_start_time = time.time()
         rx_start_offset = int(rx_start_time) % 60
         print "wait_rx_wwvb_device: time/offset = " + str(rx_start_time) + "/" + str(rx_start_offset)
         c = 0
         rx_time_timeout = rx_start_time + 140
         rx_time_print_debug = 0
+        print "wait_rx_wwvb_device: prev_pps_stamp = " + str(prev_pps_stamp)
         print "wait_rx_wwvb_device:",
-        while GPIO.input(GPIO_DEV_IRQ) != 0:
+        pps_stamp = prev_pps_stamp
+        #
+        # in theory we only need to wait until pps timestamp assert sequence changes,
+        # but also add GPIO state in case it is updated with a delay
+        #
+        while GPIO.input(GPIO_DEV_IRQ) != 0 or pps_stamp[1] == prev_pps_stamp[1]:
                 #
                 # per EVERSET specs, irq_status cannot be read until GPIO irq pin is low
                 #
@@ -408,8 +434,8 @@ def wait_rx_wwvb_device(bus):
                 rx_time_now_offset = int(rx_time_now) % 60
                 if rx_time_now > rx_time_print_debug:
                         print "   " + str(rx_time_waiting) + "/" + str(rx_time_now_offset),
-                        rx_time_print_debug = rx_time_now + 15
-                if rx_time_waiting > 150:
+                        rx_time_print_debug = rx_time_now + 10
+                if rx_time_waiting > WWB_WAIT_RX_TIMEOUT:
                         print ""
                         irq_status = read_wwvb_device(bus, ES100_IRQ_STATUS_REG)
                         control0 = read_wwvb_device(bus, ES100_CONTROL0_REG)
@@ -418,18 +444,16 @@ def wait_rx_wwvb_device(bus):
                         #print "read_rx_wwvb_device: control0 reg = " + str(control0)
                         #print "read_rx_wwvb_device: status0 reg = " + str(status0)
                         #print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
-                        print "wait_rx_wwvb_device: TIMEOUT: status0=" + str(status0) + ", " + "irq_status=" + str(irq_status) + ": " + str(time.time() - rx_start_time)
+                        print "wait_rx_wwvb_device: TIMEOUT: status0=" + str(status0) + ", irq_status=" + str(irq_status) + ", pps_assert_seq=" + str(pps_stamp[1]) + ": " + str(time.time() - rx_start_time)
                         return -1
-                time.sleep(0.001)
-                #
-                # FIXME: how does this method know which pin to look for? right?
-                # GPIO.wait_for_edge(bus, GPIO.FALLING, timeout = 5700)
-                #
+                time.sleep(0.010)
+                pps_stamp = time_pps_fetch()
+        print ""
+        print "wait_rx_wwvb_device: pps_stamp = " + str(pps_stamp)
         #
         # RX TIMESTAMP is when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C baud rate
         #
-        rx_timestamp = time.time()
-        print ""
+        rx_timestamp = pps_stamp[0]
         return rx_timestamp
 
 #
@@ -477,18 +501,18 @@ def read_rx_wwvb_device(bus, rx_timestamp):
                         print "read_rx_wwvb_device: irq_status reg = RX unsuccessful - BAD IRQ STATUS"
                         disable_wwvb_device()
                         wwvb_emit_clockstats(RX_STATUS_WWVB_IRQ_STATUS, rx_ant, rx_timestamp)
-                        return RX_STATUS_WWVB_BAD_IRQ_STATUS
+                        return RX_STATUS_WWVB_IRQ_STATUS
         if (status0 & 0x4) != 0x0:
                 print "read_rx_wwvb_device: status0 reg: RESERVED BIT IS SET --- ERROR"
                 disable_wwvb_device()
-                wwvb_emit_clockstats(RX_STATUS_WWVB_BAD_STATUS0, rx_ant, rx_timestamp)
-                return RX_STATUS_WWVB_BAD_STATUS0
+                wwvb_emit_clockstats(RX_STATUS_WWVB_STATUS0, rx_ant, rx_timestamp)
+                return RX_STATUS_WWVB_STATUS0
         if (status0 & 0x5) == 0x1:
                 print "read_rx_wwvb_device: status0 reg: RX_OK - OK"
         else:
                 print "read_rx_wwvb_device: status0 reg: !RX_OK - FAILED"
                 disable_wwvb_device()
-                wwvb_emit_clockstats(RX_STATUS_WWVB_BAD_STATUS0, rx_ant, rx_timestamp)
+                wwvb_emit_clockstats(RX_STATUS_WWVB_STATUS0, rx_ant, rx_timestamp)
                 return RX_STATUS_WWVB_STATUS0_NO_RX
         rx_ret = 0
         if (status0 & 0x2) != 0x0:
@@ -505,8 +529,8 @@ def read_rx_wwvb_device(bus, rx_timestamp):
                 # FIXME: we do not handle tracking mode yet
                 print "read_rx_wwvb_device: status0 reg: **** INTERNAL ERROR: TRACKING FLAG SET UNEXPECTEDLY ****"
                 disable_wwvb_device()
-                wwvb_emit_clockstats(RX_STATUS_WWVB_BAD_STATUS0, rx_ant, rx_timestamp)
-                return RX_STATUS_WWVB_BAD_STATUS0
+                wwvb_emit_clockstats(RX_STATUS_WWVB_STATUS0, rx_ant, rx_timestamp)
+                return RX_STATUS_WWVB_STATUS0
         year_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_YEAR_REG), offset = 2000)
         month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_MONTH_REG))
         day_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_DAY_REG))
@@ -554,6 +578,7 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         wwvb_delta_rx = wwvb_time_secs - rx_timestamp
         print "read_rx_wwvb_device: WWVB_TIME = " + make_timespec_s(wwvb_time_secs)
         print "read_rx_wwvb_device: WWVB_TIME = " + wwvb_time_txt
+        print "read_rx_wwvb_device: rx = " + make_timespec_s(rx_timestamp)
         print "read_rx_wwvb_device: wwwb_delta_rx = " + make_timespec_s(wwvb_delta_rx)
         # machine readable line for automated parsing and analysis
         # no other text printed by this tool begins with RX_WWVB
@@ -595,6 +620,7 @@ def rx_wwvb_device(rx_params):
                 disable_wwvb_device(deep_disable = True)
                 wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
                 return RX_STATUS_WWVB_DEV_INIT_FAILED
+        prev_pps_stamp = time_pps_fetch()
         #
         # START EVERSET WWVB RECEIVER RX OPERATION
         #
@@ -602,15 +628,16 @@ def rx_wwvb_device(rx_params):
         #
         # WAIT FOR RX COMPLETE ON EVERSET WWVB RECEIVER
         #
-        rx_timestamp = wait_rx_wwvb_device(bus)
+        rx_timestamp = wait_rx_wwvb_device(bus, prev_pps_stamp)
         if rx_timestamp < 0:
-                print "rx_wwvb_device: rx operation timeout at " + time.time()
+                print "rx_wwvb_device: rx operation timeout at " + str(time.time())
                 disable_wwvb_device()
                 wwvb_emit_clockstats(RX_STATUS_WWVB_TIMEOUT, 0, time.time())
                 return RX_STATUS_WWVB_TIMEOUT
         #
         # RX COMPLETE, READ DATETIME TIMESTAMP FROM EVERSET WWVB RECEIVER
         #
+        print "rx_wwvb_device: rx operation complete: " + make_timespec_s(rx_timestamp)
         print "rx_wwvb_device: rx operation complete: " + str(rx_timestamp % 60) + " (minute offset)"
         rx_ret = read_rx_wwvb_device(bus, rx_timestamp)
         print "rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!"
@@ -646,15 +673,15 @@ def rx_wwvb_select_antenna(rx_ret, rx_params):
 def wwvb_emit_rx_stats(rx_loop, rx_stats):
         rx_total = rx_stats[RX_STATUS_WWVB_RX_OK_ANT1] + rx_stats[RX_STATUS_WWVB_RX_OK_ANT2]
         rx_total = rx_total + rx_stats[RX_STATUS_WWVB_TIMEOUT]
-        rx_total = rx_total + rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA] + rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]
-        rx_total = rx_total + rx_stats[RX_STATUS_WWVB_BAD_STATUS0] + rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX]
+        rx_total = rx_total + rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA] + rx_stats[RX_STATUS_WWVB_IRQ_STATUS]
+        rx_total = rx_total + rx_stats[RX_STATUS_WWVB_STATUS0] + rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX]
         #
         rx_s = str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT1]) + ","
         rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_RX_OK_ANT2]) + ","
         rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_TIMEOUT]) + ","
         rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_IRQ_NO_DATA]) + ","
-        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_BAD_IRQ_STATUS]) + ","
-        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_BAD_STATUS0]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_IRQ_STATUS]) + ","
+        rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_STATUS0]) + ","
         rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_STATUS0_NO_RX]) + ","
         rx_s = rx_s + str(rx_stats[RX_STATUS_WWVB_DEV_INIT_FAILED])
         #
