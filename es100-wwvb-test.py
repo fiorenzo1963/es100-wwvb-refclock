@@ -54,7 +54,7 @@ GPIO_DEV_I2C_SDA_PIN        = 3         # I2C SDA pin
 GPIO_DEV_I2C_SCL_PIN        = 5         # I2C SCL pin
 GPIO_DEV_ENABLE             = 7         # device ENABLE pin connected to physical pin 7
 GPIO_DEV_IRQ                = 11        # device IRQ connected to physical pin 11
-GPIO_DEV_IRQ_PPS_DEVICE     = "pps1"    # name of pps device
+GPIO_DEV_IRQ_PPS_DEVICE     = "pps0"    # name of pps device
 KILOMETERS_FROM_FTCOLLINS_CO= 1568      # great circle distance from Fort Collins, Colorado, kilometers
 
 #
@@ -119,8 +119,8 @@ WWB_WAIT_RX_TIMEOUT         = 150
 #
 # FIXME: this is not portable
 #
-def time_pps_fetch():
-        pps_dev = "/sys/devices/virtual/pps/" + GPIO_DEV_IRQ_PPS_DEVICE + "/assert"
+def time_pps_fetch(pps_devname, edge):
+        pps_dev = "/sys/devices/virtual/pps/" + pps_devname + "/" + edge
         pps_fd = open(pps_dev, "r")
         pps_data = pps_fd.readline().replace('\n', '')
         if pps_data == '':
@@ -148,7 +148,7 @@ def str2(val):
 def write_wwvb_device(bus, reg, value):
         bus.write_byte_data(ES100_SLAVE_ADDR, reg, value)
         time.sleep(0.005)
-        time.sleep(0.005) # EXTRA -- DEBUG
+        #time.sleep(0.005) # EXTRA -- DEBUG
 
 #
 # FIXME: need to handle IO errors
@@ -159,7 +159,7 @@ def read_wwvb_device(bus, reg):
         time.sleep(0.005) # EXTRA -- DEBUG
         val = bus.read_byte(ES100_SLAVE_ADDR)
         time.sleep(0.005)
-        time.sleep(0.005) # EXTRA -- DEBUG
+        #time.sleep(0.005) # EXTRA -- DEBUG
         return val
 
 #
@@ -223,8 +223,8 @@ def disable_wwvb_device(deep_disable = False):
         if deep_disable is True:
                 print "disable_wwvb_device: deep disable"
                 time.sleep(4.000)
-                time.sleep(4.000) # EXTRA -- DEBUG
-                time.sleep(2.000) # EXTRA -- DEBUG
+                #time.sleep(4.000) # EXTRA -- DEBUG
+                #time.sleep(2.000) # EXTRA -- DEBUG
                 print "disable_wwvb_device: deep disable done"
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
@@ -240,10 +240,10 @@ def set_gpio_pins_wwvb_device():
         #
         GPIO.setup(GPIO_DEV_IRQ, GPIO.IN, GPIO.PUD_DOWN)
         time.sleep(0.100)
-        time.sleep(1.000) # DEBUG - COPY THESE TIMEOUTS BACK FROM MASTER
+        #time.sleep(1.000) # DEBUG - COPY THESE TIMEOUTS BACK FROM MASTER
         GPIO.setup(GPIO_DEV_ENABLE, GPIO.OUT)
         GPIO.output(GPIO_DEV_ENABLE, GPIO.LOW)
-        time.sleep(2.000) # DEBUG - COPY THESE TIMEOUTS BACK FROM MASTER
+        #time.sleep(2.000) # DEBUG - COPY THESE TIMEOUTS BACK FROM MASTER
         func = GPIO.gpio_function(GPIO_DEV_I2C_SCL_PIN)
         print "set_gpio_pins_wwvb_device: func I2C_SCL_PIN = " + str(func) + "/" + str(GPIO.I2C)
         if func != GPIO.I2C:
@@ -264,7 +264,7 @@ def set_gpio_pins_wwvb_device():
         # make sure IRQ is low
         #
         time.sleep(0.500)
-        time.sleep(2.000) # EXTRA DEBUG
+        #time.sleep(2.000) # EXTRA DEBUG
         gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
 
 #
@@ -451,23 +451,44 @@ def wait_rx_wwvb_device(bus, prev_pps_stamp):
                         control0 = read_wwvb_device(bus, ES100_CONTROL0_REG)
                         status0 = read_wwvb_device(bus, ES100_STATUS0_REG)
                         gpio_irq_pin = GPIO.input(GPIO_DEV_IRQ)
-                        print "wait_rx_wwvb_device: TIMEOUT: status0=" + str(status0) + ", " + "irq_status=" + str(irq_status) + ": " + str(time.time() - rx_start_time)
+                        print "wait_rx_wwvb_device: TIMEOUT ERROR: status0=" + str(status0) + ", " + "irq_status=" + str(irq_status) + ": " + str(time.time() - rx_start_time)
                         return -1
-                time.sleep(0.001)
-                #
-                # FIXME: how does this method know which pin to look for? right?
-                # GPIO.wait_for_edge(bus, GPIO.FALLING, timeout = 5700)
-                #
+                time.sleep(0.010)
         #
         # RX TIMESTAMP is when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C baud rate
         #
         rx_timestamp = time.time()
         print ""
-        pps_stamp = time_pps_fetch()
+        pps_stamp = time_pps_fetch(GPIO_DEV_IRQ_PPS_DEVICE, "clear")
         print "wait_rx_wwvb_device: rx_timestamp = " + make_timespec_s(rx_timestamp)
-        print "wait_rx_wwvb_device: pps_stamp = " + make_timespec_s(pps_stamp[0])
         print "wait_rx_wwvb_device: pps_stamp = " + str(pps_stamp)
-        return rx_timestamp
+        if pps_stamp[1] == prev_pps_stamp[1]:
+                #
+                # FIXME: still debugging making sure PPS works ok, so for now just log an error and continue with normal timestamp
+                #
+                print "wait_rx_wwvb_device: ERROR: no pps_stamp"
+                print "wait_rx_wwvb_device: ERROR: no pps_stamp"
+                print "wait_rx_wwvb_device: ERROR: no pps_stamp"
+                print "wait_rx_wwvb_device: ERROR: no pps_stamp"
+                print "wait_rx_wwvb_device: ERROR: no pps_stamp"
+                print "wait_rx_wwvb_device: ERROR: no pps_stamp"
+                print "wait_rx_wwvb_device: ERROR: no pps_stamp"
+                print "wait_rx_wwvb_device: ERROR: no pps_stamp"
+        d = rx_timestamp - pps_stamp[0]
+        if d < -0.100 or d > 0.100:
+                #
+                # FIXME: still debugging making sure PPS works ok, so for now just log an error and continue with normal timestamp
+                #
+                print "wait_rx_wwvb_device: ERROR: delta pps_stamp is too high = " + str(d)
+                print "wait_rx_wwvb_device: ERROR: delta pps_stamp is too high = " + str(d)
+                print "wait_rx_wwvb_device: ERROR: delta pps_stamp is too high = " + str(d)
+                print "wait_rx_wwvb_device: ERROR: delta pps_stamp is too high = " + str(d)
+                print "wait_rx_wwvb_device: ERROR: delta pps_stamp is too high = " + str(d)
+                print "wait_rx_wwvb_device: ERROR: delta pps_stamp is too high = " + str(d)
+                print "wait_rx_wwvb_device: ERROR: delta pps_stamp is too high = " + str(d)
+                print "wait_rx_wwvb_device: ERROR: delta pps_stamp is too high = " + str(d)
+                return rx_timestamp
+        return pps_stamp[0]
 
 #
 # read RX data from WWVB receiver
@@ -633,7 +654,7 @@ def rx_wwvb_device(rx_params):
                 disable_wwvb_device(deep_disable = True)
                 wwvb_emit_clockstats(RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
                 return RX_STATUS_WWVB_DEV_INIT_FAILED
-        prev_pps_stamp = time_pps_fetch()
+        prev_pps_stamp = time_pps_fetch(GPIO_DEV_IRQ_PPS_DEVICE, "clear")
         #
         # START EVERSET WWVB RECEIVER RX OPERATION
         #

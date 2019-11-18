@@ -278,11 +278,10 @@ In my current test installation I placed the two antennas at 45 degrees of each 
 ## System Configuration
 * Enable I2C
 * Enable SMBUS
-* Enable PPS - PPS is configured by default, so all you should have to do is make sure that gpio-pps module is loaded at boot time
+* Enable PPS (PPS should already configured by default, so all you should have to do is make sure that gpio-pps module is loaded at boot time)
 * Setup PPS in /boot/config.txt - note that the pin numbering in /boot/config.txt follows the BCM numbering
 ```
-dtoverlay=pps-gpio,gpiopin=17
-dtoverlay=pps-gpio,assert_falling_edge
+dtoverlay=pps-gpio,gpiopin=17,capture_clear
 ```
 
 ## Metrics
