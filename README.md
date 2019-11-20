@@ -66,6 +66,8 @@ fudge 127.127.28.13 refid WWVB
 	* NIST's WWVB Page https://www.nist.gov/pml/time-and-frequency-division/radio-stations/wwvb
 	* https://tf.nist.gov/general/pdf/2429.pdf
 	* https://www.febo.com/time-freq/wwvb/index.html
+	* https://tf.nist.gov/general/pdf/1969.pdf
+	* https://www.nist.gov/system/files/documents/2017/05/09/NIST-Enhanced-WWVB-Broadcast-Format-1_01-2013-11-06.pdf
 * Links of interest and related projects
 	* https://ieeexplore.ieee.org/document/1701081
 	* https://www.ion.org/publications/abstract.cfm?articleID=15622

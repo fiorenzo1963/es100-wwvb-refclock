@@ -177,20 +177,34 @@ def read_wwvb_device(bus, reg):
         return val
 
 #
-# enable/disable state changes take a significant amount of time.
-# everset data sheet doesn't say how long these transitions should last,
-# but it does seem excessive for this to even taken more than 100 milliseconds
+# the timeout parameter is a temporary hack, as not all code paths can handle timeouts yet
 #
-def gpio_wait_state_change(pin, pin_name, curr_state, curr_state_s, new_state, new_state_s):
+def gpio_wait_state_change(pin, pin_name, curr_state, timeout = False):
+        if curr_state == 0:
+                new_state = 1
+                state_s = "low-to-high"
+        else:
+                curr_state = 1
+                new_state = 0
+                state_s = "high-to-low"
         c = 0
-        print "gpio_wait_state_change: wait for " + pin_name + " state change to " + new_state_s
+        warn = False
+        print "gpio_wait_state_change: wait for " + pin_name + " state change " + state_s
         # FIXME: need to timeout this loop
         while GPIO.input(pin) == curr_state:
-                time.sleep(0.005)
+                time.sleep(0.001)
                 c = c + 0.005
+                if c >= 0.100 and warn is False:
+                        print "gpio_wait_state_change: WARNING: still waiting for state change after " + str(c) + " secs"
+                        warn = True
+                if c >= 0.500 and timeout is True:
+                        print "gpio_wait_state_change: ERROR: still waiting for state change after " + str(c) + " secs"
+                        return curr_state
+        if c > 0:
+                print "gpio_wait_state_change: state change for " + pin_name + " took " + str(c) + " secs"
         if c >= 0.050:
                 print "gpio_wait_state_change: WARNING: state change for " + pin_name + " took " + str(c) + " secs"
-        time.sleep(0.050)
+        return new_state
 
 #
 # FIXME: need to do substantial cleanup of this code
@@ -203,27 +217,14 @@ def enable_wwvb_device():
                 print "enable_wwvb_device: enabling WWVB device"
                 if GPIO.input(GPIO_DEV_IRQ) != 0:
                         #
-                        # README FIXME: need to handle this error -- it's not clear at why this happens.
-                        # when the device is disabled with GPIO_DEV_ENABLE set to 0, the hardware is
-                        # not supposed to set IRQ high. the disable path always waits for IRQ to go low
-                        # before completing.
-                        # will probably need to debug this with the oscillscope.
+                        # FIXME: need to handle this error
                         #
-                        # README FIXME: news flash: i think i found why. datasheet says that pins float
-                        # while device is disabled, so i've changed the GPIO_DEV_ENABLE to pulldown.
-                        # hopefull this fixes the problem, if it does i'll remove these messages.
-                        #
-                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
-                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
-                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
-                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
-                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
-                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
-                        print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
                         print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
                         time.sleep(4.000)
                 GPIO.output(GPIO_DEV_ENABLE, GPIO.HIGH)
-        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 0, "low", 1, "high")
+        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 0)
+        # waiting a little bit more is critical for correct operation
+        time.sleep(0.010)
 
 #
 # see README comment in enable_wwvb_device -- need to handle QPIO_IRQ possibly bouncing a bit
@@ -238,7 +239,9 @@ def disable_wwvb_device(deep_disable = False):
                 print "disable_wwvb_device: deep disable"
                 time.sleep(4.000)
                 print "disable_wwvb_device: deep disable done"
-        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
+        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1)
+        # probably needed for correct operation
+        time.sleep(0.010)
 
 def set_gpio_pins_wwvb_device():
         #
@@ -274,7 +277,7 @@ def set_gpio_pins_wwvb_device():
         # make sure IRQ is low
         #
         time.sleep(0.500)
-        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1, "high", 0, "low")
+        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 1)
 
 #
 # main entry point - init
@@ -489,20 +492,23 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         irq_status = read_wwvb_device(bus, ES100_IRQ_STATUS_REG)
         control0 = read_wwvb_device(bus, ES100_CONTROL0_REG)
         status0 = read_wwvb_device(bus, ES100_STATUS0_REG)
-        gpio_irq_pin = GPIO.input(GPIO_DEV_IRQ)
+        print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
         print "read_rx_wwvb_device: control0 reg = " + str(control0)
         print "read_rx_wwvb_device: status0 reg = " + str(status0)
-        print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
-        print "read_rx_wwvb_device: GPIO_IRQ pin = " + str(gpio_irq_pin)
         #
-        # double check GPIO_IRQ is still low after reading device registers
-        # mainly to sanity check the hardware
+        # the datasheet is unclear as to when the ES100 raises DEV_IRQ back,
+        # whether it's after reading IRQ status or IRQ status and datetime/dst registers.
+        # empirically i've found IRQ goes back high immediately after reading irq_status register.
         #
-        if gpio_irq_pin == 0:
-                print "read_rx_wwvb_device: ERROR: GPIO_IRQ pin is low - should be high"
+        gpio_irq_pin = gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 0, timeout = True)
+        # waiting a little bit more is critical for correct operation
+        time.sleep(0.010)
+        if gpio_irq_pin != 1:
+                print "read_rx_wwvb_device: ERROR: GPIO_IRQ pin is still low - should be high"
                 disable_wwvb_device()
                 wwvb_emit_clockstats(RX_STATUS_WWVB_IRQ_STATUS_LOW, rx_ant, rx_timestamp)
                 return RX_STATUS_WWVB_IRQ_STATUS_LOW
+
         #
         # get rx_ant first, then process irq_status before status0 register
         #
@@ -569,16 +575,9 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_HOUR_REG))
         minute_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_MINUTE_REG))
         second_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_SECOND_REG))
-        #
-        # don't care about dst registers, but have to read them so ES100 knows to raise DEV_IRQ back
-        #
-        next_dst_month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_MONTH_REG))
-        next_dst_day_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_DAY_REG))
-        next_dst_hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_HOUR_REG))
-        #
-        # datasheet says ES100 raises DEV_IRQ back after host reads status, datetime and dst registers
-        #
-        gpio_wait_state_change(GPIO_DEV_IRQ, "DEV_IRQ", 0, "low", 1, "high")
+        # next_dst_month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_MONTH_REG))
+        # next_dst_day_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_DAY_REG))
+        # next_dst_hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_HOUR_REG))
         #
         #
         # FIXME: use a time format method instead of this
@@ -700,7 +699,7 @@ def wwvb_emit_rx_stats(rx_loop, rx_stats):
                 rx_total = rx_total + rx_stats[i]
                 if rx_s != "":
                         rx_s = rx_s + ","
-                rx_s = str(rx_stats[i])
+                rx_s = rx_s + str(rx_stats[i])
         #
         # version 1
         print "RX_WWVB_STAT_COUNTERS,v1," + str(rx_loop) + "," + str(rx_total) + "," + rx_s
