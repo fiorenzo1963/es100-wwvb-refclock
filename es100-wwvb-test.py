@@ -63,6 +63,12 @@ GPIO_DEV_IRQ                = 11        # device IRQ connected to physical pin 1
 GPIO_DEV_IRQ_PPS_DEVICE     = "pps0"    # name of pps device
 KILOMETERS_FROM_FTCOLLINS_CO= 1568      # great circle distance from Fort Collins, Colorado, kilometers
 
+
+#
+# EXPERIMENTAL - use at your own risk. all of this is test code, but this is even more so
+#
+ALLOW_RX_TRACKING_MODE      = True
+
 #
 # from https://ieeexplore.ieee.org/document/1701081
 #
@@ -105,8 +111,11 @@ ES100_DEVICE_ID             = 0x10
 
 #
 #
+ES100_CONTROL_START_TRACKING_RX_FLAG        = 0x10
 ES100_CONTROL_START_RX_ANT1                 = 0x05
 ES100_CONTROL_START_RX_ANT2                 = 0x03
+ES100_CONTROL_START_TRACKING_RX_ANT1        = (ES100_CONTROL_START_TRACKING_RX_FLAG | ES100_CONTROL_START_RX_ANT1)
+ES100_CONTROL_START_TRACKING_RX_ANT2        = (ES100_CONTROL_START_TRACKING_RX_FLAG | ES100_CONTROL_START_RX_ANT2)
 #
 # XXX: NOTE: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
 # or asking for ANT2_ANT1 over ANT2
@@ -548,6 +557,10 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         if (status0 & 0x5) == 0x1:
                 print "read_rx_wwvb_device: status0 reg: RX_OK - OK"
         else:
+                #
+                # NOTE: it looks like when in tracking mode this status doesn't matter
+                # so long as the irq_status rx done bit is set.
+                #
                 print "read_rx_wwvb_device: status0 reg: !RX_OK - FAILED"
                 disable_wwvb_device()
                 wwvb_emit_clockstats(RX_STATUS_WWVB_STATUS0_NO_RX, rx_ant, rx_timestamp)
@@ -563,39 +576,64 @@ def read_rx_wwvb_device(bus, rx_timestamp):
                 print "read_rx_wwvb_device: status0 reg: LEAP second flag indicator"
         if (status0 & 0x60) != 0:
                 print "read_rx_wwvb_device: status0 reg: DST flags set"
+
         if (status0 & 0x80) != 0:
-                # FIXME: we do not handle tracking mode yet
-                print "read_rx_wwvb_device: status0 reg: **** INTERNAL ERROR: TRACKING FLAG SET UNEXPECTEDLY ****"
-                disable_wwvb_device()
-                wwvb_emit_clockstats(RX_STATUS_WWVB_STATUS0_RSVD, rx_ant, rx_timestamp)
-                return RX_STATUS_WWVB_STATUS0_RSVD
-        year_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_YEAR_REG), offset = 2000)
-        month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_MONTH_REG))
-        day_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_DAY_REG))
-        hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_HOUR_REG))
-        minute_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_MINUTE_REG))
-        second_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_SECOND_REG))
-        # next_dst_month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_MONTH_REG))
-        # next_dst_day_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_DAY_REG))
-        # next_dst_hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_HOUR_REG))
-        #
-        #
-        # FIXME: use a time format method instead of this
-        wwvb_time = (
-                        year_reg,
-                        month_reg,
-                        day_reg,
-                        hour_reg,
-                        minute_reg,
-                        second_reg,
-                        0, 0, 0
-                    )
-        # FIXME: use a time format method instead of this
-        wwvb_time_txt = str(year_reg) + "-" + str2(month_reg) + "-" + str2(day_reg)
-        wwvb_time_txt = wwvb_time_txt + "T"
-        wwvb_time_txt = wwvb_time_txt + str2(hour_reg) + "-" + str2(minute_reg) + "-" + str2(second_reg)
-        wwvb_time_txt = wwvb_time_txt + "Z"
-        wwvb_time_secs = time.mktime(wwvb_time)
+                #
+                # FIXME: make sure we actually requested tracking mode
+                # FIXME: need to weed out bad timestamps
+                #
+                print "read_rx_wwvb_device: status0 reg: processing TRACKING RX mode"
+                rx_timestamp_frac = rx_timestamp - int(rx_timestamp)
+                #
+                # FIXME: need to weed out bad timestamps
+                #
+                print "read_rx_wwvb_device: rx_timestamp = " + make_timespec_s(rx_timestamp)
+                print "read_rx_wwvb_device: rx_timestamp_frac = " + make_timespec_s(rx_timestamp_frac)
+                if rx_timestamp_frac >= 0.70:
+                        # round up and truncate
+                        wwvb_time_secs = int(rx_timestamp + 1)
+                        wwvb_time_txt = "UT-" + str(wwvb_time_secs % 60) + "-TK"
+                        print "read_rx_wwvb_device: wwvb_time_secs(up_truncate) = " + str(wwvb_time_secs)
+                else:
+                        #
+                        # FIXME: need to weed out bad timestamps
+                        #
+                        wwvb_time_secs = int(rx_timestamp)
+                        wwvb_time_txt = "T-" + str(wwvb_time_secs % 60) + "-TK"
+                        print "read_rx_wwvb_device: wwvb_time_secs(truncate) = " + str(wwvb_time_secs)
+        else:
+                print "read_rx_wwvb_device: status0 reg: processing normal RX mode"
+                year_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_YEAR_REG), offset = 2000)
+                month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_MONTH_REG))
+                day_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_DAY_REG))
+                hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_HOUR_REG))
+                minute_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_MINUTE_REG))
+                second_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_SECOND_REG))
+                # next_dst_month_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_MONTH_REG))
+                # next_dst_day_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_DAY_REG))
+                # next_dst_hour_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_NEXT_DST_HOUR_REG))
+                #
+                #
+                # FIXME: use a time format method instead of this
+                wwvb_time = (
+                                year_reg,
+                                month_reg,
+                                day_reg,
+                                hour_reg,
+                                minute_reg,
+                                second_reg,
+                                0, 0, 0
+                            )
+                # FIXME: use a time format method instead of this
+                wwvb_time_txt = str(year_reg) + "-" + str2(month_reg) + "-" + str2(day_reg)
+                wwvb_time_txt = wwvb_time_txt + "T"
+                wwvb_time_txt = wwvb_time_txt + str2(hour_reg) + "-" + str2(minute_reg) + "-" + str2(second_reg)
+                wwvb_time_txt = wwvb_time_txt + "Z"
+                wwvb_time_secs = time.mktime(wwvb_time)
+
+        print "read_rx_wwvb_device: WWVB_TIME = " + make_timespec_s(wwvb_time_secs)
+        print "read_rx_wwvb_device: WWVB_TIME = " + wwvb_time_txt
+        print "read_rx_wwvb_device: rx = " + make_timespec_s(rx_timestamp)
         #
         # adjust for great circle distance from Ft Collins
         # radio wave speed in earth's atmosphere is roughly the same as the distance in vacuum
@@ -644,6 +682,15 @@ def rx_wwvb_device(rx_params):
                 return RX_STATUS_WWVB_DEV_INIT_FAILED
         prev_pps_stamp = time_pps_fetch(GPIO_DEV_IRQ_PPS_DEVICE, "clear")
         #
+        #
+        #
+        print "rx_wwvb_device: rx_params = " + str(rx_params)
+        if (rx_params & ES100_CONTROL_START_TRACKING_RX_FLAG) != 0:
+                print "rx_wwvb_device: tracking mode requested, waiting until :54 before issuing command"
+                while (time.time() % 60) < 54:
+                        #print "rx_wwvb_device: second offset is :" + str(time.time() % 60) + ", waiting"
+                        time.sleep(0.500)
+        #
         # START EVERSET WWVB RECEIVER RX OPERATION
         #
         start_rx_wwvb_device(bus, rx_params)
@@ -674,12 +721,22 @@ def rx_wwvb_select_antenna(rx_ret, rx_params):
         # set rx_params for next rx based on current ok_rx
         # XXX: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
         # or asking for ANT2_ANT1 over ANT2. maybe once we allow WWVB device to continue retry, it will.
-        # FIXME: add a small function to select this.
+        #
+        #
+        # FIXME: this is a bad place to decide whether to use tracking mode or not
+        # FIXME: only use tracking mode is last known good RX was within 0.5 seconds from WWVB timestamp
+        #
         #
         if rx_ret == RX_STATUS_WWVB_RX_OK_ANT1:
+                if ALLOW_RX_TRACKING_MODE is True:
+                        print "rx_wwvb_select_antenna: RX OK: using same antenna ANT1 for next RX in TRACKING MODE"
+                        return ES100_CONTROL_START_TRACKING_RX_ANT1
                 print "rx_wwvb_select_antenna: RX OK: using same antenna ANT1 for next RX"
                 return ES100_CONTROL_START_RX_ANT1
         if rx_ret == RX_STATUS_WWVB_RX_OK_ANT2:
+                if ALLOW_RX_TRACKING_MODE is True:
+                        print "rx_wwvb_select_antenna: RX OK: using same antenna ANT1 for next RX in TRACKING MODE"
+                        return ES100_CONTROL_START_TRACKING_RX_ANT2
                 print "rx_wwvb_select_antenna: RX OK: using same antenna ANT2 for next RX"
                 return ES100_CONTROL_START_RX_ANT2
         if rx_params == ES100_CONTROL_START_RX_ANT1:

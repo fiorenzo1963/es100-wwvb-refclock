@@ -57,10 +57,12 @@ fudge 127.127.28.13 refid WWVB
 
 * EVERSET
 	* Datasheet http://everset-tech.com/wp-content/uploads/2014/11/ES100DataSheetver0p97.pdf
+	* Related Arduino project which contains information not specified in the datasheet https://sites.google.com/site/wwvbreceiverwitharduino/
 	* North America Distributor https://www.universal-solder.ca/product/everset-es100-cob-wwvb-60khz-bpsk-receiver-kit-with-2-antennas/
 	* Amazon https://www.amazon.com/gp/product/B07PDW1QPX/ref=ppx_yo_dt_b_asin_title_o09_s00?ie=UTF8&psc=1
 	* https://time-nuts.febo.narkive.com/gETMuwcR/new-wwvb-bpsk-dev-board
 	* https://www.kb6nu.com/building-a-wwvb-receiver-episode-2/
+	* https://www.tinaja.com/third/wwvbuser01.pdf
 * WWVB general information
 	* WWVB Wikipedia https://en.wikipedia.org/wiki/WWVB
 	* NIST's WWVB Page https://www.nist.gov/pml/time-and-frequency-division/radio-stations/wwvb
@@ -69,6 +71,7 @@ fudge 127.127.28.13 refid WWVB
 	* https://tf.nist.gov/general/pdf/1969.pdf
 	* https://www.nist.gov/system/files/documents/2017/05/09/NIST-Enhanced-WWVB-Broadcast-Format-1_01-2013-11-06.pdf
 * Links of interest and related projects
+	* https://sites.google.com/site/wwvbreceiverwitharduino/
 	* https://ieeexplore.ieee.org/document/1701081
 	* https://www.ion.org/publications/abstract.cfm?articleID=15622
 	* http://www.leapsecond.com/pages/sony-wwvb/
@@ -314,3 +317,4 @@ CANADUINO makes another WWVB receiver, based on the MAS6180C chip. This product 
 * https://www.universal-solder.ca/product/canaduino-60khz-atomic-clock-receiver-module-wwvb-msf-jjy60/
 * http://canaduino.ca/downloads/CANADUINO_Atomic_Clock_Receiver_Kit_SMD.pdf
 * https://github.com/ahooper/WWVBClock
+* https://sites.google.com/site/wwvbreceiverwitharduino/
