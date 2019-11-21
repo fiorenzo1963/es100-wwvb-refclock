@@ -131,6 +131,8 @@ ES100_CONTROL_START_RX_ANT2_ANT1            = 0x09
 
 WWB_WAIT_RX_TIMEOUT         = 150
 
+# T_MODE_TOLERANCE            = 0.400 # only accept timestamps which are within 400ms of expected second offset
+
 #
 # FIXME: this is not portable
 #
@@ -371,8 +373,9 @@ RX_STATUS_WWVB_STATUS0_NO_RX        = 7 # RX done, STATUS0 indicates no data rec
 RX_STATUS_WWVB_DEV_INIT_FAILED      = 8 # failed to initialize ES100 device (usually failed read from device_id register)
 RX_STATUS_WWVB_IRQ_STATUS_HIGH      = 9 # bad IRQ_STATUS_HIGH, should be low
 RX_STATUS_WWVB_IRQ_STATUS_LOW       = 10 # bad IRQ_STATUS_LOW, should be high
+RX_STATUS_WWVB_T_STAMP_OORANGE      = 11 # tracking timestamp 20 or 21 minute offset out of range
 RX_STATUS_WWVB_MIN_STATUS           = 1
-RX_STATUS_WWVB_MAX_STATUS           = 10
+RX_STATUS_WWVB_MAX_STATUS           = 11
 
 RX_STATUS_WWVB_STR = (
                 "",
@@ -385,7 +388,8 @@ RX_STATUS_WWVB_STR = (
                 "STATUS0_NO_RX",
                 "DEV_INIT_FAILED",
                 "IRQ_STATUS_HIGH",
-                "IRQ_STATUS_LOW"
+                "IRQ_STATUS_LOW",
+                "T_STAMP_OORANGE"
 )
 
 #
@@ -494,7 +498,7 @@ def wait_rx_wwvb_device(bus, prev_pps_stamp):
 #
 # read RX data from WWVB receiver
 #
-def read_rx_wwvb_device(bus, rx_timestamp):
+def read_rx_wwvb_device(bus, rx_params, rx_timestamp):
         #
         # read irq_status register first, per EVERSET timing diagrams
         #
@@ -554,14 +558,23 @@ def read_rx_wwvb_device(bus, rx_timestamp):
                 disable_wwvb_device()
                 wwvb_emit_clockstats(RX_STATUS_WWVB_STATUS0_RSVD, rx_ant, rx_timestamp)
                 return RX_STATUS_WWVB_STATUS0_RSVD
+        status0_patch = ""
+        #
+        # after careful reading of the datasheet, i've realized this is not supported
+        #
+        # if (status0 & 0x5) == 0x0 and (rx_params & ES100_CONTROL_START_TRACKING_RX_FLAG) != 0:
+        #         print "read_rx_wwvb_device: status0 reg: WARNING: RX_OK is not set after tracking cmd, but irq_stats reg is ok, patching value"
+        #         status0_patch = "-STATUS0-PATCHED"
+        #         status0 |= 0x1
+        #
         if (status0 & 0x5) == 0x1:
-                print "read_rx_wwvb_device: status0 reg: RX_OK - OK"
+                print "read_rx_wwvb_device: status0 reg: RX_OK: RX OK"
         else:
                 #
                 # NOTE: it looks like when in tracking mode this status doesn't matter
                 # so long as the irq_status rx done bit is set.
                 #
-                print "read_rx_wwvb_device: status0 reg: !RX_OK - FAILED"
+                print "read_rx_wwvb_device: status0 reg: NO_RX: RX FAILED"
                 disable_wwvb_device()
                 wwvb_emit_clockstats(RX_STATUS_WWVB_STATUS0_NO_RX, rx_ant, rx_timestamp)
                 return RX_STATUS_WWVB_STATUS0_NO_RX
@@ -577,30 +590,60 @@ def read_rx_wwvb_device(bus, rx_timestamp):
         if (status0 & 0x60) != 0:
                 print "read_rx_wwvb_device: status0 reg: DST flags set"
 
+        wwvb_time_txt = ""
         if (status0 & 0x80) != 0:
                 #
                 # FIXME: make sure we actually requested tracking mode
                 # FIXME: need to weed out bad timestamps
                 #
                 print "read_rx_wwvb_device: status0 reg: processing TRACKING RX mode"
+                rx_timestamp_mod = rx_timestamp % 60
                 rx_timestamp_frac = rx_timestamp - int(rx_timestamp)
                 #
                 # FIXME: need to weed out bad timestamps
                 #
                 print "read_rx_wwvb_device: rx_timestamp = " + make_timespec_s(rx_timestamp)
+                print "read_rx_wwvb_device: rx_timestamp_mod = " + make_timespec_s(rx_timestamp_mod)
                 print "read_rx_wwvb_device: rx_timestamp_frac = " + make_timespec_s(rx_timestamp_frac)
-                if rx_timestamp_frac >= 0.70:
-                        # round up and truncate
-                        wwvb_time_secs = int(rx_timestamp + 1)
-                        wwvb_time_txt = "UT-" + str(wwvb_time_secs % 60) + "-TK"
-                        print "read_rx_wwvb_device: wwvb_time_secs(up_truncate) = " + str(wwvb_time_secs)
+                #
+                #if rx_timestamp_frac >= 0.70:
+                #        # round up and truncate
+                #        wwvb_time_secs = int(rx_timestamp + 1)
+                #        wwvb_time_txt = "UT-" + str(wwvb_time_secs % 60) + "-TK" + status0_patch
+                #        print "read_rx_wwvb_device: wwvb_time_secs(up_truncate) = " + str(wwvb_time_secs)
+                #else:
+                #        #
+                #        # FIXME: need to weed out bad timestamps
+                #        #
+                #        wwvb_time_secs = int(rx_timestamp)
+                #        wwvb_time_txt = "T-" + str(wwvb_time_secs % 60) + "-TK" + status0_patch
+                #        print "read_rx_wwvb_device: wwvb_time_secs(truncate) = " + str(wwvb_time_secs)
+                #
+                # when in tracking mode,
+                # only accept timestamps which are within +/- 200 milliseconds from expected ts.
+                #
+                if rx_timestamp_mod >= 19.8 and rx_timestamp_mod < 20.2:
+                        if rx_timestamp_mod < 20:
+                                wwvb_time_secs = int(rx_timestamp + 1)
+                                wwvb_time_txt = "-T20-ROUNDUP" + status0_patch
+                        else:
+                                wwvb_time_secs = int(rx_timestamp)
+                                wwvb_time_txt = "-T20-TRUNC" + status0_patch
+                        print "read_rx_wwvb_device: accept timestamp for :20 second offset" + wwvb_time_txt
                 else:
-                        #
-                        # FIXME: need to weed out bad timestamps
-                        #
-                        wwvb_time_secs = int(rx_timestamp)
-                        wwvb_time_txt = "T-" + str(wwvb_time_secs % 60) + "-TK"
-                        print "read_rx_wwvb_device: wwvb_time_secs(truncate) = " + str(wwvb_time_secs)
+                        if rx_timestamp_mod >= 20.8 and rx_timestamp_mod < 21.2:
+                                if rx_timestamp_mod < 21:
+                                        wwvb_time_secs = int(rx_timestamp + 1)
+                                        wwvb_time_txt = "-T21-ROUNDUP" + status0_patch
+                                else:
+                                        wwvb_time_secs = int(rx_timestamp)
+                                        wwvb_time_txt = "-T21-TRUNC" + status0_patch
+                                print "read_rx_wwvb_device: accept timestamp for :21 second offset" + wwvb_time_txt
+                        else:
+                                print "read_rx_wwvb_device: tracking sample offset out of range"
+                                disable_wwvb_device()
+                                wwvb_emit_clockstats(RX_STATUS_WWVB_T_STAMP_OORANGE, rx_ant, rx_timestamp)
+                                return RX_STATUS_WWVB_T_STAMP_OORANGE
         else:
                 print "read_rx_wwvb_device: status0 reg: processing normal RX mode"
                 year_reg = decode_bcd_byte(read_wwvb_device(bus, ES100_YEAR_REG), offset = 2000)
@@ -625,18 +668,12 @@ def read_rx_wwvb_device(bus, rx_timestamp):
                                 0, 0, 0
                             )
                 # FIXME: use a time format method instead of this
-                wwvb_time_txt = str(year_reg) + "-" + str2(month_reg) + "-" + str2(day_reg)
-                wwvb_time_txt = wwvb_time_txt + "T"
-                wwvb_time_txt = wwvb_time_txt + str2(hour_reg) + "-" + str2(minute_reg) + "-" + str2(second_reg)
-                wwvb_time_txt = wwvb_time_txt + "Z"
+                wwvb_time_txt = ""
                 wwvb_time_secs = time.mktime(wwvb_time)
 
-        print "read_rx_wwvb_device: WWVB_TIME = " + make_timespec_s(wwvb_time_secs)
-        print "read_rx_wwvb_device: WWVB_TIME = " + wwvb_time_txt
-        print "read_rx_wwvb_device: rx = " + make_timespec_s(rx_timestamp)
+        wwvb_time_txt = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(wwvb_time_secs)) + wwvb_time_txt
         #
         # adjust for great circle distance from Ft Collins
-        # radio wave speed in earth's atmosphere is roughly the same as the distance in vacuum
         #
         distance_delay = (KILOMETERS_FROM_FTCOLLINS_CO * 1.0) / (SPEED_OF_LIGHT_OVERLAND * 1.0)
         print "read_rx_wwvb_device: adjusting wwvb timestamp for distance_delay = " + str(distance_delay)
@@ -708,7 +745,7 @@ def rx_wwvb_device(rx_params):
         #
         print "rx_wwvb_device: rx operation complete: " + make_timespec_s(rx_timestamp)
         print "rx_wwvb_device: rx operation complete: " + str(rx_timestamp % 60) + " (minute offset)"
-        rx_ret = read_rx_wwvb_device(bus, rx_timestamp)
+        rx_ret = read_rx_wwvb_device(bus, rx_params, rx_timestamp)
         print "rx_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!"
         #
         # that's all folks!
