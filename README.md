@@ -137,10 +137,9 @@ dtoverlay=pps-gpio,gpiopin=17,capture_clear
 ## Recent Results
 
 * Results for the time interval 2019-11-21T01:02Z to 2019-1122T02:39Z, in a one minute cadence (except for errors)
-* RX statistics indicate a successful RX rate of 78%.
-```
-        Total RX attempts       1220
-        Successful RX attempts   960
+* RX statistics indicate a successful RX rate of about 78%. All the failed RX are due to the fact that the WWVB station does not broadcast BPSK encoding during six minutes each half hour, from 10–16 and 40–46 minutes past each hour.
+	* Total RX attempts       1220
+	* Successful RX attempts   960
 * Phase (aka offset) error statistics compared against a local GPS-disciplined stratum-1 clock
 	* Average  -5.64 milliseconds
 	* Median   -4.71 milliseconds
