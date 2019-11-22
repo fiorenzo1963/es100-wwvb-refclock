@@ -16,7 +16,7 @@ The test code runs forever and keeps receiving data from WWVB. It starts with us
 
 The receiver first starts by requesting a full RX (which provides PPS mark as well as UTC timestamp), then continue in tracking mode, which only provides timestamp information. Tracking mode is more robust and works for the most part of the day, at least according to current limited experience.
 
-![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_dual_antennas.jpg)
+![alt text](images/es100_with_dual_antennas.jpg)
 
 ## Using NTP SHM reflock
 
@@ -114,12 +114,12 @@ ES100 WWVB PIN          WIRE COLOR
 5 = SDA                 GREEN
 6 = EN                  ORANGE
 ```
-![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_connection_to_pi3.jpg)
+![alt text](images/es100_connection_to_pi3.jpg)
 * The wire colors are of course completely arbitrary. I didn't want to break apart the ribbon wire, so I ended up with GND being red. Oh well.
 * Before starting the test program, make sure that the I2C bus is enabled and running. I have set a 9600 baud rate for the I2C clock, although quite likely higher baud rates can be used.
 * Everset Antenna Considerations: http://everset-tech.com/wp-content/uploads/2014/11/AN-005_Everset_Antenna_Considerations_rev_1p1.pdf
 In my current test installation I placed the two antennas at 45 degrees of each other, with the median orientation being loosely pointed to Fort Collins, Colorado. The receiver is located neart Seattle, Washington, at a Great Circle distance of 1577 Km, (980 Mi, 851 Nmi).
-![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_antennas_and_pi3.jpg)
+![alt text](images/es100_with_antennas_and_pi3.jpg)
 
 ## System Configuration
 * Enable I2C
