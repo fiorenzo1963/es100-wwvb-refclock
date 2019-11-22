@@ -145,7 +145,7 @@ dtoverlay=pps-gpio,gpiopin=17,capture_clear
 	* Median   -4.71 milliseconds
 	* STDDEV   0.027
 * Phase (aka offset) error plot, with 120 minutes moving average (RX errors are ignored here). Note this graph truncates two data samples which are around -200 milliseconds:
-![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/wwvb-20191121-graph.JPG)
+![alt text](images/wwvb-20191121-graph.JPG)
 
 ## Metrics
 
