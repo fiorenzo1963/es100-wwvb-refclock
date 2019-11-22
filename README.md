@@ -166,10 +166,17 @@ RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299280.016940594,58808,4880.016940594,0
 RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299341.008145332,58808,4941.008145332,0,2019-11-21T01:22:21Z-T21-TRUNC,1574299341.005239725,-0.002905607
 RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299401.001959801,58808,5001.001959801,0,2019-11-21T01:23:21Z-T21-TRUNC,1574299401.005239725,0.003279924
 ```
-* If you need space separated fields for gnuplot, you use awk command to extract any field of interest. This example extracts MJD and second offset, printing a '*' for missing datapoints:
+* To produce a file with a format suitable for standard displaying with gnuplot, use scripts/gnuplot-extract.sh:
 ```
-grep CLOCKS es100-wwvb-test.log   | awk -F ',' ' { off = $12; if (length($12)==0) off = "*"; print $7, $8, off } '
+pi@rasp-wwvb:~/GITHUB/es100-wwvb-refclock $ scripts/gnuplot-extract.sh es100-wwvb-test.log
+58808 3980.995705605 0.009534121
+58808 4040.039047241 -0.033807516
+58808 4100.974687099 0.030552626
+58808 4160.012565851 -0.007326126
+58808 4220.555790663 *
+58808 4362.524651527 *
 ```
+
 
 ## Related WWVB Hardware
 
