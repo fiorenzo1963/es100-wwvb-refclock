@@ -16,22 +16,8 @@
 # other antenna. The receive timestamp is taken with PPS api when GPIO_IRQ goes low, thus
 # its accuracy does not depend on the I2C bus's baud rate.
 #
-# TODO: major issues to be fixed:
-#
-# (A) Handle IO errors when reading/writing I2C device
-# (B) Need to support continous RX mode.
-# (C) The receiver can trigger an IRQ which simply indicates that RX was unsuccessful,
-#     and retry is pending. The current code simply treats this as a timeout and restarts reception.
-# (D) Tracking mode (essentially equivalent to a "PPS" mode) needs to be supported,
-#     see datasheet for details.
-# (E) Figure out best antenna strategy.
-# (F) Forking external code to update NTP SHM segment is ugly.
-# (G) Using /sys/devices to read PPS timestamps is non-portable and needs to be fixed.
-#
-# TODO: minor issues to be fixed:
-#
-# (C) general code cleanup
-# (D) convert to a class object
+# TODO: general code cleanup
+# TODO: convert to a class object
 #
 
 import RPi.GPIO as GPIO
@@ -42,12 +28,10 @@ import os
 
 #
 # FIXME: the code currently uses python floating point to store timespec values.
-# it works correctly, however it is probably a very bad idea. either implement timespec
-# in python or simply rewrite everything in C.
-# aside from this issue, there are other issues which cannot really be handled in python,
-# sysV shared memory segments and pps timestamps.
-# all these could be done with ctypes and external shared libraries, but one begins to
-# wonder having this code in python is a good idea in the first place.
+# the code works correctly. looking at ntpsec python tools, it looks like python floats
+# are used there as well. all of this seems to indicate using python floats is okay.
+# for this specific case, the precision provided by python floats by far dwarfs the
+# accuracy of the WWVB timestamps.
 #
 
 #

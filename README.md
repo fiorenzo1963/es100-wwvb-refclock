@@ -2,6 +2,10 @@
 Python test code and Shared memory NTP reference clock for Everset es100 WWVB receiver
 
 ## Description
+
+NOTE **THIS DESCRIPTION APPLIES TO THIS BRANCH ONLY**
+NOTE **DEVELOPMENT BRANCH**
+
 This repository contains software to interface with Everset es100 WWVB receiver. This receiver is a dual-antenna software-defined radioclock which gets the timestamp code transmitted by NIST's WWVB 60 kHz radio station in Fort Collins, Colorado.
 
 The test code is written in Python for ease of use, developed and tested on Raspberry PI 3.
@@ -9,6 +13,8 @@ The test code is written in Python for ease of use, developed and tested on Rasp
 The code which updates NTP SHM refclock is external. This is ugly and should be cleaned up.
 
 The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna (1, 2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is a PPS timestamp when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
+
+The receiver first starts by requesting a full RX (which provides PPS mark as well as UTC timestamp), then continue in tracking mode, which only provides timestamp information. Tracking mode is more robust and works for the most part of the day, at least according to current limited experience.
 
 ![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/es100_with_dual_antennas.jpg)
 
@@ -38,9 +44,6 @@ fudge 127.127.28.13 refid WWVB
 ## TODO
 
 * See code comments for full FIXME list.
-* Allow receiver to continue retry operation after being notified that current RX was unsucceful.
-* Add tracking mode functionality for improved timestamp reception. Tracking mode only uses the top-of-the-minute mark as a PPS indicator, and works so long as the local clock doesn't have excess drift. Adding tracking mode will most likely render the above feature somewhat moot.
-* Calling external code to update NTP SHM segment is ugly. It should at least be done with a C library called directly from python.
 * Using /sys/devices to read PPS timestamps is non-portable and needs to be fixed. Python ctypes is the magic word.
 * Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver. Python ctypes is the magic word.
 
@@ -131,138 +134,19 @@ dtoverlay=pps-gpio,gpiopin=17,capture_clear
 
 * None seen so far. ES100 appears to behave per Everset datasheet specs.
 
-## First results
+## Recent Results
 
-* These logs have been taken from 2019-11-15T11:09:18Z to 2019-11-15T22:35:49Z
-* RX statistics indicate a successful RX rate of 44%
+* Results for the time interval 2019-11-21T01:02Z to 2019-1122T02:39Z, in a one minute cadence (except for errors)
+* RX statistics indicate a successful RX rate of 78%.
 ```
-        RX_OK_ANT1          1      /* RX count on ANT_1 */
-        RX_OK_ANT2        113      /* RX count on ANT_2 */
-        IRQ_NO_DATA       145      /* RX unsuccessful, WWVB retrying (currently simply timed-out) */
-```
+        Total RX attempts       1220
+        Successful RX attempts   960
 * Phase (aka offset) error statistics compared against a local GPS-disciplined stratum-1 clock
-	* Average ~ -10 milliseconds
-	* Most samples are within +40/-60 milliseconds
-	* All samples are within +60/-120 milliseconds
-* Phase (aka offset) error plot, with moving average (note that RX errors are ignored here). The X axis is dimensionless and corresponds to one received WWVB timestamp. The next plot will show RX errors and actual timestamp.
-![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/wwvb_offset_error_20191115.jpg)
-* Raw data
-```
-35.8819961548 msecs
--2.85601615906 msecs
--13.0240917206 msecs
-21.1451053619 msecs
--9.01007652283 msecs
--17.767906189 msecs
--0.637054443359 msecs
--22.0699310303 msecs
--42.7401065826 msecs
-11.6429328918 msecs
--9.01198387146 msecs
-19.082069397 msecs
--53.3170700073 msecs
-26.1480808258 msecs
-4.98604774475 msecs
--16.5359973907 msecs
-9.21010971069 msecs
--14.3430233002 msecs
--14.9350166321 msecs
-10.0729465485 msecs
--10.1869106293 msecs
--30.6680202484 msecs
--2.18296051025 msecs
-21.2829113007 msecs
--49.6110916138 msecs
--21.0900306702 msecs
-33.3271026611 msecs
--41.2769317627 msecs
-32.5000286102 msecs
-11.5818977356 msecs
--11.0800266266 msecs
-17.6119804382 msecs
--5.25188446045 msecs
--26.1199474335 msecs
--26.0870456696 msecs
-3.1430721283 msecs
--17.5850391388 msecs
--37.7249717712 msecs
--9.14692878723 msecs
-18.7959671021 msecs
--51.5909194946 msecs
--22.411108017 msecs
--43.2329177856 msecs
-5.31792640686 msecs
--15.6650543213 msecs
--12.8180980682 msecs
-16.037940979 msecs
--32.1359634399 msecs
--5.85794448853 msecs
-22.2079753876 msecs
--48.7809181213 msecs
-30.0300121307 msecs
-8.15391540527 msecs
--13.8370990753 msecs
-15.1979923248 msecs
-12.3600959778 msecs
--8.80694389343 msecs
--31.0459136963 msecs
--2.90298461914 msecs
--27.5859832764 msecs
--2.5520324707 msecs
-26.9839763641 msecs
--46.2210178375 msecs
--36.6849899292 msecs
-41.6009426117 msecs
-19.0300941467 msecs
--3.22198867798 msecs
--23.6840248108 msecs
--0.0319480895996 msecs
--24.1389274597 msecs
--43.5659885406 msecs
--16.0810947418 msecs
--16.0429477692 msecs
-14.4009590149 msecs
--7.04407691956 msecs
--78.2179832458 msecs
--0.511884689331 msecs
-28.9149284363 msecs
--42.2170162201 msecs
--13.5610103607 msecs
--8.29696655273 msecs
--34.9659919739 msecs
--6.4070224762 msecs
--27.8630256653 msecs
--0.458955764771 msecs
--22.3500728607 msecs
-6.61110877991 msecs
--114.166021347 msecs
--20.1070308685 msecs
-57.629108429 msecs
-45.6500053406 msecs
-31.9490432739 msecs
-53.3010959625 msecs
--46.6289520264 msecs
--9.99689102173 msecs
--3.29303741455 msecs
--8.31890106201 msecs
-19.0908908844 msecs
--53.7889003754 msecs
--25.8769989014 msecs
--97.0349311829 msecs
-7.91907310486 msecs
--44.4889068604 msecs
--7.21788406372 msecs
--11.9609832764 msecs
--33.595085144 msecs
--4.01997566223 msecs
--86.0741138458 msecs
--7.73811340332 msecs
-17.6229476929 msecs
--5.126953125 msecs
--27.853012085 msecs
-0.614881515503 msecs
--24.9390602112 msecs
-```
+	* Average  -5.64 milliseconds
+	* Median   -4.71 milliseconds
+	* STDDEV   0.027
+* Phase (aka offset) error plot, with 120 minutes moving average (RX errors are ignored here). Note this graph truncates two data samples which are around -200 milliseconds:
+![alt text](https://raw.githubusercontent.com/fiorenzo1963/es100-wwvb-refclock/master/images/wwvb-20191121-graph.JPG)
 
 ## Metrics
 
@@ -277,38 +161,15 @@ pi@wwvb-raspberrypi:~/GITHUB/es100-wwvb-refclock $ grep RX_WWVB_STAT_COUNTERS es
 ```
 Sample results for **RX_WWVB_CLOCKSTATS**:
 ```
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574088910.037290096,58805,53710.037290096,0,2019-11-18T14-55-10Z,1574088910.005239725,-0.032050371
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574089046.004205942,58805,53846.004205942,0,2019-11-18T14-57-26Z,1574089046.005239725,0.001033783
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574089182.027056932,58805,53982.027056932,0,2019-11-18T14-59-42Z,1574089182.005239725,-0.021817207
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574089317.994098663,58805,54117.994098663,0,2019-11-18T15-01-58Z,1574089318.005239725,0.011141062
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574089453.971482515,58805,54253.971482515,0,2019-11-18T15-04-14Z,1574089454.005239725,0.033757210
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574089590.009804487,58805,54390.009804487,0,2019-11-18T15-06-30Z,1574089590.005239725,-0.004564762
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574089726.036934853,58805,54526.036934853,0,2019-11-18T15-08-46Z,1574089726.005239725,-0.031695127
-RX_WWVB_CLOCKSTATS,v2,4,IRQ_CYCLE_COMPL,1,1574089868.322228432,58805,54668.322228432,0,,,
-RX_WWVB_CLOCKSTATS,v2,4,IRQ_CYCLE_COMPL,2,1574090010.431529522,58805,54810.431529522,0,,,
-RX_WWVB_CLOCKSTATS,v2,4,IRQ_CYCLE_COMPL,1,1574090152.551741838,58805,54952.551741838,0,,,
-RX_WWVB_CLOCKSTATS,v2,4,IRQ_CYCLE_COMPL,2,1574090294.674129963,58805,55094.674129963,0,,,
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574090430.977062702,58805,55230.977062702,0,2019-11-18T15-20-31Z,1574090431.005239725,0.028177023
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574090567.001712799,58805,55367.001712799,0,2019-11-18T15-22-47Z,1574090567.005239725,0.003526926
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574090703.022387028,58805,55503.022387028,0,2019-11-18T15-25-03Z,1574090703.005239725,-0.017147303
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574090838.985434532,58805,55638.985434532,0,2019-11-18T15-27-19Z,1574090839.005239725,0.019805193
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574090975.007650614,58805,55775.007650614,0,2019-11-18T15-29-35Z,1574090975.005239725,-0.002410889
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574091110.978703022,58805,55910.978703022,0,2019-11-18T15-31-51Z,1574091111.005239725,0.026536703
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574091247.013198376,58805,56047.013198376,0,2019-11-18T15-34-07Z,1574091247.005239725,-0.007958651
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574091383.027441025,58805,56183.027441025,0,2019-11-18T15-36-23Z,1574091383.005239725,-0.022201300
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574091519.040785789,58805,56319.040785789,0,2019-11-18T15-38-39Z,1574091519.005239725,-0.035546064
-RX_WWVB_CLOCKSTATS,v2,4,IRQ_CYCLE_COMPL,1,1574091661.316339493,58805,56461.316339493,0,,,
-RX_WWVB_CLOCKSTATS,v2,4,IRQ_CYCLE_COMPL,2,1574091803.429315090,58805,56603.429315090,0,,,
-RX_WWVB_CLOCKSTATS,v2,4,IRQ_CYCLE_COMPL,1,1574091945.548914671,58805,56745.548914671,0,,,
-RX_WWVB_CLOCKSTATS,v2,4,IRQ_CYCLE_COMPL,2,1574092087.664652348,58805,56887.664652348,0,,,
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574092223.974880695,58805,57023.974880695,0,2019-11-18T15-50-24Z,1574092224.005239725,0.030359030
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574092360.003244638,58805,57160.003244638,0,2019-11-18T15-52-40Z,1574092360.005239725,0.001995087
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574092495.982347250,58805,57295.982347250,0,2019-11-18T15-54-56Z,1574092496.005239725,0.022892475
-RX_WWVB_CLOCKSTATS,v2,1,RX_OK_ANT1,1,1574092632.011371613,58805,57432.011371613,0,2019-11-18T15-57-12Z,1574092632.005239725,-0.006131887
+RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299183.011537552,58808,4783.011537552,0,2019-11-21T01:19:43Z,1574299183.005239725,-0.006297827
+RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299220.982684851,58808,4820.982684851,0,2019-11-21T01:20:21Z-T21-ROUNDUP,1574299221.005239725,0.022554874
+RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299280.016940594,58808,4880.016940594,0,2019-11-21T01:21:20Z-T20-TRUNC,1574299280.005239725,-0.011700869
+RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299341.008145332,58808,4941.008145332,0,2019-11-21T01:22:21Z-T21-TRUNC,1574299341.005239725,-0.002905607
+RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299401.001959801,58808,5001.001959801,0,2019-11-21T01:23:21Z-T21-TRUNC,1574299401.005239725,0.003279924
 ```
-* Using gnuplot to plot RX_WWVB_CLOCKSTATS. Gnuplot can easily handle commas as separators instead of white spaces, note however a little data massaging for error entries is needed if null values are not accepted by gnuplot or intermediate scripts.
+* If you need space separated fields for gnuplot, you use awk command to extract any field of interest. This example extracts MJD and second offset, printing a '*' for missing datapoints:
 ```
-set datafile separator comma
+grep CLOCKS es100-wwvb-test.log   | awk -F ',' ' { off = $12; if (length($12)==0) off = "*"; print $7, $8, off } '
 ```
 
 ## Related WWVB Hardware

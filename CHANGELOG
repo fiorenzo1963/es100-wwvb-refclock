@@ -1,3 +1,5 @@
+* Mon Nov 20 2019 Fio Cattaneo <fio@cattaneo.us> 20191120 (dev branch)
+- Add experimental support for tracking mode
 * Mon Nov 19 2019 Fio Cattaneo <fio@cattaneo.us> 20191119-1.0
 - Proper handling to irq low-to-high transition, right after reading irq status register.
 - Implement timeout in gpio_wait (only used in one place for now).
