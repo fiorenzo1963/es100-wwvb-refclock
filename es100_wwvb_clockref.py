@@ -1,7 +1,9 @@
 #!/usr/bin/python -u
 
+import os
+import sys
 import time
-import es100_wwvb
+from es100_wwvb import es100_wwvb
 
 def main():
         rx_params = 0

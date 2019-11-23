@@ -1,4 +1,5 @@
 *.log
 *.out
 *.o
+*.pyc
 update_shm_one_shot
