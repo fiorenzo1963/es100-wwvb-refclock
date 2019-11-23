@@ -18,7 +18,6 @@
 # its accuracy does not depend on the I2C bus's baud rate.
 #
 # TODO: general code cleanup
-# TODO: convert to a class object
 #
 
 import RPi.GPIO as GPIO
@@ -26,13 +25,15 @@ import smbus
 import time
 import sys
 import os
+from pps import pps
 
 #
 # FIXME: the code currently uses python floating point to store timespec values.
-# the code works correctly. looking at ntpsec python tools, it looks like python floats
-# are used there as well. all of this seems to indicate using python floats is okay.
-# for this specific case, the precision provided by python floats by far dwarfs the
-# accuracy of the WWVB timestamps.
+# most (all?) python implementations use IEEE754 double precision, which gives plenty of precision to
+# handle unix epoch times with nanosecond precision. printing a unix epoch as timespec "{0.09f}" format
+# yields the desired precision when using IEEE754 double precision.
+# code rewrite will be technically needed if this code is ever used with single precision arithmetic,
+# although it's possible that given the jitter of the WWVB signal, there would be no practical consequences.
 #
 
 class es100_wwvb:
@@ -51,7 +52,8 @@ class es100_wwvb:
         #
         # EXPERIMENTAL - use at your own risk. all of this is test code, but this is even more so
         #
-        ALLOW_RX_TRACKING_MODE      = True
+        ALLOW_RX_TRACKING_MODE      = False
+        FORCE_RX_TRACKING_MODE      = False
         #
         # from https://ieeexplore.ieee.org/document/1701081
         #
@@ -131,8 +133,11 @@ class es100_wwvb:
                         "IRQ_STATUS_LOW",
                         "T_STAMP_OORANGE"
         )
-        def __init__(self):
-                print "__init__:"
+        def __init__(self, allow_tracking_mode = False, force_tracking_mode = False):
+                self.ALLOW_RX_TRACKING_MODE = allow_tracking_mode
+                self.FORCE_RX_TRACKING_MODE = force_tracking_mode
+                print "__init__: self.ALLOW_RX_TRACKING_MODE = " + str(self.ALLOW_RX_TRACKING_MODE)
+                print "__init__: self.FORCE_RX_TRACKING_MODE = " + str(self.FORCE_RX_TRACKING_MODE)
                 GPIO.setwarnings(False)
                 print "__init__: opening i2c bus channel = " + str(es100_wwvb.I2C_DEV_CHANNEL)
                 self.smbus = smbus.SMBus(es100_wwvb.I2C_DEV_CHANNEL)
@@ -145,26 +150,24 @@ class es100_wwvb:
                 # make sure WWVB receiver is powered down
                 #
                 self.disable_wwvb_device(deep_disable = True)
+                #
+                # get pps device
+                #
+                self.pps = pps(self.GPIO_DEV_IRQ_PPS_DEVICE, "clear")
                 print "__init__: done"
-        #
-        # FIXME: this is not portable
-        # FIXME: this is not portable
-        #
-        def time_pps_fetch(self, pps_devname, edge):
-                pps_dev = "/sys/devices/virtual/pps/" + pps_devname + "/" + edge
-                pps_fd = open(pps_dev, "r")
-                pps_data = pps_fd.readline().replace('\n', '')
-                if pps_data == '':
-                        return [ 0.0, 0 ]
-                pps_data_a = pps_data.split('#')
-                pps_stamp = [ 0.0, 0 ]
-                pps_stamp[0] = float(pps_data_a[0])
-                pps_stamp[1] = int(pps_data_a[1])
-                return pps_stamp
         def make_timespec_s(self, timestamp):
                 return "{0:09.09f}".format(timestamp)
         def make_timefrac_s(self, timestamp):
                 return "{0:0.09f}".format(timestamp)
+        def make_utc_s(self, timestamp):
+                timestamp_i = int(timestamp)
+                return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(timestamp_i))
+        def make_utc_s_ns(self, timestamp):
+                timestamp_i = int(timestamp)
+                timestamp_frac = timestamp - timestamp_i
+                s = time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(timestamp_i))
+                timestamp_frac_s = "{0:09d}".format(int(timestamp_frac * 1000000000))
+                return s + "." + timestamp_frac_s + "Z"
         def decode_bcd_byte(self, raw_bcd, offset = 0):
                 val = raw_bcd & 0xf
                 val = val + ((raw_bcd >> 4) & 0xf) * 10
@@ -384,7 +387,9 @@ class es100_wwvb:
                 rx_s = rx_s + wwvb_time_s + ","
                 rx_s = rx_s + wwvb_delta_rx_s
                 # version 2 adds mjd day and second
-                print "RX_WWVB_CLOCKSTATS,v2," + rx_s
+                # version 3 adds utc value for rx_timestamp - backward compat with version 2
+                # print "RX_WWVB_CLOCKSTATS,v2," + rx_s
+                print "RX_WWVB_CLOCKSTATS,v3," + rx_s + "," + self.make_utc_s_ns(rx_timestamp)
                 #last_rx_timestamp = rx_timestamp
         #
         # initiate RX operation on WWVB device and return data
@@ -435,7 +440,7 @@ class es100_wwvb:
                         #
                         # RX TIMESTAMP is given by pps clear, thus its accuracy does not depend on the I2C baud rate
                         #
-                        pps_stamp = self.time_pps_fetch(self.GPIO_DEV_IRQ_PPS_DEVICE, "clear")
+                        pps_stamp = self.pps.time_pps_fetch()
                 print ""
                 print "wait_rx_wwvb_device: pps_stamp = " + str(prev_pps_stamp)
                 #print "wait_rx_wwvb_device: rx_timestamp = " + self.make_timespec_s(rx_timestamp)
@@ -599,7 +604,7 @@ class es100_wwvb:
                         # FIXME: use a time format method instead of this
                         wwvb_time_txt = ""
                         wwvb_time_secs = time.mktime(wwvb_time)
-                wwvb_time_txt = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(wwvb_time_secs)) + wwvb_time_txt
+                wwvb_time_txt = self.make_utc_s(wwvb_time_secs) + wwvb_time_txt
                 #
                 # adjust for great circle distance from Ft Collins
                 #
@@ -610,10 +615,10 @@ class es100_wwvb:
                 #
                 #
                 wwvb_delta_rx = wwvb_time_secs - rx_timestamp
-                print "read_rx_wwvb_device: WWVB_TIME = " + self.make_timespec_s(wwvb_time_secs)
-                print "read_rx_wwvb_device: WWVB_TIME = " + wwvb_time_txt
-                print "read_rx_wwvb_device: rx = " + self.make_timespec_s(rx_timestamp)
-                print "read_rx_wwvb_device: wwwb_delta_rx = " + self.make_timespec_s(wwvb_delta_rx)
+                print "read_rx_wwvb_device: WWVB_TIME       = " + self.make_timespec_s(wwvb_time_secs)
+                print "read_rx_wwvb_device: WWVB_TIME       = " + wwvb_time_txt
+                print "read_rx_wwvb_device: RX              = " + self.make_timespec_s(rx_timestamp)
+                print "read_rx_wwvb_device: WWWB_DELTA_RX = " + self.make_timespec_s(wwvb_delta_rx)
                 # machine readable line for automated parsing and analysis
                 # no other text printed by this tool begins with RX_WWVB
                 # emit machine readable stat
@@ -644,7 +649,7 @@ class es100_wwvb:
                         self.disable_wwvb_device(deep_disable = True)
                         self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
                         return es100_wwvb.RX_STATUS_WWVB_DEV_INIT_FAILED
-                prev_pps_stamp = self.time_pps_fetch(self.GPIO_DEV_IRQ_PPS_DEVICE, "clear")
+                prev_pps_stamp = self.pps.time_pps_fetch()
                 #
                 #
                 #
@@ -703,9 +708,15 @@ class es100_wwvb:
                         print "rx_wwvb_select_antenna: RX OK: using same antenna ANT2 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT2
                 if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
+                        if self.FORCE_RX_TRACKING_MODE is True:
+                                print "rx_wwvb_select_antenna: RX FAILED on antenna ANT1: using antenna ANT2 for next RX in TRACKING MODE (FORCE)"
+                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT2
                         print "rx_wwvb_select_antenna: RX FAILED on antenna ANT1: using antenna ANT2 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT2
                 else:
+                        if self.FORCE_RX_TRACKING_MODE is True:
+                                print "rx_wwvb_select_antenna: RX FAILED on antenna ANT2: using antenna ANT1 for next RX in TRACKING MODE (FORCE)"
+                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT1
                         print "rx_wwvb_select_antenna: RX FAILED on antenna ANT2: using antenna ANT1 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT1
         #
