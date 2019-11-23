@@ -73,6 +73,9 @@ fudge 127.127.28.13 refid WWVB
 	* https://www.febo.com/time-freq/wwvb/index.html
 	* https://tf.nist.gov/general/pdf/1969.pdf
 	* https://www.nist.gov/system/files/documents/2017/05/09/NIST-Enhanced-WWVB-Broadcast-Format-1_01-2013-11-06.pdf
+* Tools:
+	* http://www.wriley.com/
+	* https://ieee-uffc.org/frequency-control/frequency-control-software/stable32/
 * Links of interest and related projects
 	* https://sites.google.com/site/wwvbreceiverwitharduino/
 	* https://ieeexplore.ieee.org/document/1701081
