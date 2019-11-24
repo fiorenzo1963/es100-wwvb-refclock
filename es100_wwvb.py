@@ -388,8 +388,8 @@ class es100_wwvb:
                 rx_s = rx_s + wwvb_delta_rx_s
                 # version 2 adds mjd day and second
                 # version 3 adds utc value for rx_timestamp - backward compat with version 2
-                # print "RX_WWVB_CLOCKSTATS,v2," + rx_s
-                print "RX_WWVB_CLOCKSTATS,v3," + rx_s + "," + self.make_utc_s_ns(rx_timestamp)
+                print "RX_WWVB_CLOCKSTATS,v2," + rx_s
+                #print "RX_WWVB_CLOCKSTATS,v3," + rx_s + "," + self.make_utc_s_ns(rx_timestamp)
                 #last_rx_timestamp = rx_timestamp
         #
         # initiate RX operation on WWVB device and return data

@@ -88,17 +88,18 @@ void update_shm(const struct timespec *pps_ts, const struct timespec *local_ts)
 	shm->valid = 0;
 	atomic_thread_fence(memory_order_seq_cst);
 	shm->mode = 1;
-	shm->clock_timestamp_sec = (__int32_t)pps_ts->tv_sec;
-	shm->clock_timestamp_usec = (__int32_t)(pps_ts->tv_nsec / 1000);
-	shm->clock_timestamp_nsec = (__int32_t)pps_ts->tv_nsec;
-	shm->receive_timestamp_sec = (__int32_t)local_ts->tv_sec;
-	shm->receive_timestamp_usec = (__uint32_t)(local_ts->tv_nsec / 1000);
-	shm->receive_timestamp_nsec = (__uint32_t)local_ts->tv_nsec;
+	shm->clock_timestamp_sec = (time_t)pps_ts->tv_sec;
+	shm->clock_timestamp_usec = (int)(pps_ts->tv_nsec / 1000);
+	shm->clock_timestamp_nsec = (unsigned int)pps_ts->tv_nsec;
+	shm->receive_timestamp_sec = (time_t)local_ts->tv_sec;
+	shm->receive_timestamp_usec = (int)(local_ts->tv_nsec / 1000);
+	shm->receive_timestamp_nsec = (unsigned int)local_ts->tv_nsec;
 	shm->leap = LEAP_NOWARNING;
 	shm->precision = (-4); /* 6.25 msecs */
 	shm->count++;
 	atomic_thread_fence(memory_order_seq_cst);
 	shm->valid = 1;
+	atomic_thread_fence(memory_order_seq_cst);
 	printf("update_shm_one_shot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
 }
 
