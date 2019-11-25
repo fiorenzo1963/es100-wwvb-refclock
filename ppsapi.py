@@ -28,14 +28,18 @@
 # although it's possible that given the jitter of the WWVB signal, there would be no practical consequences.
 #
 
-class pps:
-        def __init__(self, pps_devname, pps_edge):
+class ppsapi:
+        PPS_CAPTUREASSERT = 0x01
+        PPS_CAPTURECLEAR  = 0x02
+        def __init__(self, pps_devname, pps_mode):
                 self.pps_devname = pps_devname
-                self.pps_edge = pps_edge
-                print "pps.__init__: " + self.pps_devname + ", " + self.pps_edge
-                self.pps_edge = pps_edge
-        def time_pps_fetch(self):
-                pps_dev = "/sys/devices/virtual/pps/" + self.pps_devname + "/" + self.pps_edge
+                self.pps_mode = pps_mode
+                print "ppsapi.__init__: " + self.pps_devname + ", " + "{0:0x}".format(self.pps_mode)
+        def __time_pps_fetch(self, mode):
+                if mode == ppsapi.PPS_CAPTUREASSERT:
+                        pps_dev = "/sys/devices/virtual/pps/" + self.pps_devname + "/assert"
+                else:
+                        pps_dev = "/sys/devices/virtual/pps/" + self.pps_devname + "/clear"
                 pps_fd = open(pps_dev, "r")
                 pps_data = pps_fd.readline().replace('\n', '')
                 if pps_data == '':
@@ -45,3 +49,11 @@ class pps:
                 pps_stamp[0] = float(pps_data_a[0])
                 pps_stamp[1] = int(pps_data_a[1])
                 return pps_stamp
+        def time_pps_fetch(self):
+                pps_data = { }
+                pps_data['mode'] = self.pps_mode
+                if self.pps_mode & ppsapi.PPS_CAPTUREASSERT:
+                        pps_data['assert'] = self.__time_pps_fetch(ppsapi.PPS_CAPTUREASSERT)
+                if self.pps_mode & ppsapi.PPS_CAPTURECLEAR:
+                        pps_data['clear'] = self.__time_pps_fetch(ppsapi.PPS_CAPTURECLEAR)
+                return pps_data

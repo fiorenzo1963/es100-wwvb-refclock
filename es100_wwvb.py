@@ -25,7 +25,7 @@ import smbus
 import time
 import sys
 import os
-from pps import pps
+from ppsapi import ppsapi
 
 #
 # FIXME: the code currently uses python floating point to store timespec values.
@@ -153,7 +153,7 @@ class es100_wwvb:
                 #
                 # get pps device
                 #
-                self.pps = pps(self.GPIO_DEV_IRQ_PPS_DEVICE, "clear")
+                self.pps = ppsapi(self.GPIO_DEV_IRQ_PPS_DEVICE, ppsapi.PPS_CAPTURECLEAR)
                 print "__init__: done"
         def make_timespec_s(self, timestamp):
                 return "{0:09.09f}".format(timestamp)
@@ -401,9 +401,9 @@ class es100_wwvb:
                 if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT2:
                         print "start_rx_wwvb_device: WWVB receive: starting RX on antenna 2 only"
                 self.write_wwvb_device(es100_wwvb.ES100_CONTROL0_REG, rx_params)
-                rx_start_time = time.time()
-                rx_start_offset = int(rx_start_time) % 60
-                print "start_rx_wwvb_device: time/offset = " + str(rx_start_time) + "/" + str(rx_start_offset)
+                # rx_start_time = time.time()
+                # rx_start_offset = int(rx_start_time) % 60
+                # print "start_rx_wwvb_device: time/offset = " + str(rx_start_time) + "/" + str(rx_start_offset)
         #
         # wait for RX operation to complete, return RX timestamp on RX, -1 on timeout
         #
@@ -413,9 +413,9 @@ class es100_wwvb:
                 print "wait_rx_wwvb_device: time/offset = " + str(rx_start_time) + "/" + str(rx_start_offset)
                 c = 0
                 rx_time_timeout = rx_start_time + 140
-                rx_time_print_debug = 0
+                # rx_time_print_debug = 0
                 print "wait_rx_wwvb_device: prev_pps_stamp = " + str(prev_pps_stamp)
-                print "wait_rx_wwvb_device:",
+                # print "wait_rx_wwvb_device:",
                 pps_stamp = prev_pps_stamp
                 while pps_stamp[1] == prev_pps_stamp[1]:
                         #
@@ -425,9 +425,9 @@ class es100_wwvb:
                         rx_time_now = time.time()
                         rx_time_waiting = int(rx_time_now - rx_start_time)
                         rx_time_now_offset = int(rx_time_now) % 60
-                        if rx_time_now > rx_time_print_debug:
-                                print "   " + str(rx_time_waiting) + "/" + str(rx_time_now_offset),
-                                rx_time_print_debug = rx_time_now + 15
+                        # if rx_time_now > rx_time_print_debug:
+                        #         print "   " + str(rx_time_waiting) + "/" + str(rx_time_now_offset),
+                        #         rx_time_print_debug = rx_time_now + 15
                         if rx_time_waiting > es100_wwvb.WWB_WAIT_RX_TIMEOUT:
                                 print ""
                                 irq_status = self.read_wwvb_device(es100_wwvb.ES100_IRQ_STATUS_REG)
@@ -440,9 +440,12 @@ class es100_wwvb:
                         #
                         # RX TIMESTAMP is given by pps clear, thus its accuracy does not depend on the I2C baud rate
                         #
-                        pps_stamp = self.pps.time_pps_fetch()
-                print ""
-                print "wait_rx_wwvb_device: pps_stamp = " + str(prev_pps_stamp)
+                        pps_stamp = self.pps.time_pps_fetch()['clear']
+                # print ""
+                print "wait_rx_wwvb_device: RX pps_stamp = " + str(pps_stamp)
+                rx_end_time = time.time()
+                rx_end_offset = int(rx_end_time) % 60
+                print "wait_rx_wwvb_device: RX time/offset = " + str(rx_end_time) + "/" + str(rx_end_offset)
                 #print "wait_rx_wwvb_device: rx_timestamp = " + self.make_timespec_s(rx_timestamp)
                 return pps_stamp[0]
         #
@@ -649,7 +652,7 @@ class es100_wwvb:
                         self.disable_wwvb_device(deep_disable = True)
                         self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
                         return es100_wwvb.RX_STATUS_WWVB_DEV_INIT_FAILED
-                prev_pps_stamp = self.pps.time_pps_fetch()
+                prev_pps_stamp = self.pps.time_pps_fetch()['clear']
                 #
                 #
                 #
