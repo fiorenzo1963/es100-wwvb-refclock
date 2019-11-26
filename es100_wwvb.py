@@ -609,19 +609,35 @@ class es100_wwvb:
                         wwvb_time_secs = time.mktime(wwvb_time)
                 wwvb_time_txt = self.make_utc_s(wwvb_time_secs) + wwvb_time_txt
                 #
+                # Timestamp pair:
+                #       wwvb_time_secs  = wwvb_timestamp
+                #       rx_timestamp    = local_clock_timestamp
+                # Signal from wwvb is delayed by the time it takes for radio wave to travel, thus:
+                #       wwvb_time_secs  = wwvb_timestamp + distance_delay
+                #       rx_timestamp    = local_clock_timestamp
+                # Some codes are probably not setup to correctly handle an event timestamp which is not
+                # an integer, so convert the above timestamp pair as follows:
+                #       wwvb_time_secs  = wwvb_timestamp + distance_delay - distance_delay
+                #       rx_timestamp    = local_clock_timestamp - distance_delay
+                # Simplifying:
+                #       wwvb_time_secs  = wwvb_timestamp
+                #       rx_timestamp    = local_clock_timestamp - distance_delay
+                #
+                #
                 # adjust for great circle distance from Ft Collins
                 #
                 distance_delay = (self.KILOMETERS_FROM_FTCOLLINS_CO * 1.0) / (es100_wwvb.SPEED_OF_LIGHT_OVERLAND * 1.0)
-                print "read_rx_wwvb_device: adjusting wwvb timestamp for distance_delay = " + str(distance_delay)
-                wwvb_time_secs = wwvb_time_secs + distance_delay
+                print "read_rx_wwvb_device: RX              = " + self.make_timespec_s(rx_timestamp)
+                print "read_rx_wwvb_device: adjusting rx_timestamp for distance_delay = " + str(distance_delay)
+                rx_timestamp = rx_timestamp - distance_delay
                 #
-                #
+                # wwvb_delta_rx is the phase error (offset error)
                 #
                 wwvb_delta_rx = wwvb_time_secs - rx_timestamp
                 print "read_rx_wwvb_device: WWVB_TIME       = " + self.make_timespec_s(wwvb_time_secs)
                 print "read_rx_wwvb_device: WWVB_TIME       = " + wwvb_time_txt
                 print "read_rx_wwvb_device: RX              = " + self.make_timespec_s(rx_timestamp)
-                print "read_rx_wwvb_device: WWWB_DELTA_RX = " + self.make_timespec_s(wwvb_delta_rx)
+                print "read_rx_wwvb_device: WWWB_DELTA_RX   = " + self.make_timespec_s(wwvb_delta_rx)
                 # machine readable line for automated parsing and analysis
                 # no other text printed by this tool begins with RX_WWVB
                 # emit machine readable stat
