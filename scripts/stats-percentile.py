@@ -9,20 +9,12 @@ import time
 # although it can be very closely approximated to 1 sample = 1 minute when RX is okay
 #
 
-if len(sys.argv) != 4:
-        print sys.argv[0] + ": usage: " + sys.argv[0] + " logfile time_constant median_threshold"
+if len(sys.argv) != 2:
+        print sys.argv[0] + ": usage: " + sys.argv[0] + " logfile"
         exit(1)
 logfile = sys.argv[1]
-TIME_CONSTANT = int(sys.argv[2])
-median_threshold = float(sys.argv[3])
 
 print "         logfile = " + logfile
-print "   TIME_CONSTANT = " + str(TIME_CONSTANT)
-print "   TIME_CONSTANT = " + str(median_threshold)
-
-if median_threshold < 0.1 or median_threshold > 0.9:
-        print "median threshold needs to be between 0.1 and 0.9"
-        exit(1)
 
 def read_data():
         raw_data = [ ]
@@ -59,23 +51,15 @@ def get_samples(data, i_start, i_end):
 def do_average(s):
         return sum(s, 0.0) / len(s)
 
-def do_median_filter(s):
+def do_median(s):
         s1 = s
         s1.sort()
-        curr_len = len(s1)
-        threshold_len = len(s1) * median_threshold
-        while len(s1) > threshold_len and len(s1) > 2:
-                if abs(s1[0]) > abs(s1[-1]):
-                        del s1[0]
-                else:
-                        del s1[-1]
         if len(s1) == 1:
                 return s1[0]
-        #if len(s1) % 2 == 0:
-        #        return avg(s1[len(s1) / 2], s1[len(s1) / 2 + 1])
-        #else:
-        #        return s1[len(s1) / 2]
-        return s1[len(s1) / 2]
+        if len(s1) % 2 == 0:
+                return avg(s1[len(s1) / 2], s1[len(s1) / 2 + 1])
+        else:
+                return s1[len(s1) / 2]
 
 def make_timespec_s(timestamp):
         return "{0:09.09f}".format(timestamp)
@@ -99,56 +83,38 @@ def is_daytime(timestamp):
         else:
                 return False
 
-min_sample = 86400.0
-max_sample = -86400.0
-min_avg = 86400.0
-max_avg = -86400.0
-min_median = 86400.0
-max_median = -86400.0
-for i in range(0, len(valid_data) - 1):
-        if i >= TIME_CONSTANT - 1:
-                samples = get_samples(valid_data, i - TIME_CONSTANT, i)
-                avg = do_average(samples)
-                median = do_median_filter(samples)
-        spaces = "      "
-        s = "#" + str(i) + spaces
-        s = s + make_timespec_s(valid_data[i][0]) + spaces
-        s = s + make_timefrac_s(valid_data[i][1])
-        if is_daytime(valid_data[i][0]):
-                s = s + spaces + "  DAY"
-        else:
-                s = s + spaces + "NIGHT"
-
-        if valid_data[i][1] < min_sample:
-                min_sample = valid_data[i][1]
-        if valid_data[i][1] > max_sample:
-                max_sample = valid_data[i][1]
-        if i >= TIME_CONSTANT - 1:
-                s = s + spaces
-                s = s + make_timefrac_s(avg) + spaces
-                s = s + make_timefrac_s(median)
-                if avg < min_avg:
-                        min_avg = avg
-                if avg > max_avg:
-                        max_avg = avg
-                if median < min_median:
-                        min_median = median
-                if median > max_median:
-                        max_median = median
-        print s
+samples = get_samples(valid_data, 0, len(valid_data) - 1)
+samples.sort()
 
 print ""
-print "         logfile = " + logfile
-print "   TIME_CONSTANT = " + str(TIME_CONSTANT)
-print ""
+print "              logfile = " + logfile
 print "total samples         = " + str(len(all_data))
 print "total valid samples   = " + str(len(valid_data))
 print "      valid samples   = " + "{0:.2f}%".format(100.0 * len(valid_data) / len(all_data))
 print ""
-print "         min_sample   = " + make_timefrac_s(min_sample)
-print "         max_sample   = " + make_timefrac_s(max_sample)
-print "            min_avg   = " + make_timefrac_s(min_avg)
-print "            max_avg   = " + make_timefrac_s(max_avg)
-print "         min_median   = " + make_timefrac_s(min_median)
-print "         max_median   = " + make_timefrac_s(max_median)
-print ""
+
+def get_percentile(samples, pct):
+        index = (len(samples) * pct) / 100.0
+        index = int(index)
+        #print "get_percentile: len(samples) = " + str(len(samples)) + ", index=" + str(index)
+        if index > len(samples) - 1:
+                index = len(samples) - 1
+        return samples[index]
+
+print "P00            = " + make_timefrac_s(get_percentile(samples, 0.0))
+print "P01            = " + make_timefrac_s(get_percentile(samples, 1.0))
+print "P05            = " + make_timefrac_s(get_percentile(samples, 5.0))
+print "P10            = " + make_timefrac_s(get_percentile(samples, 10.0))
+print "P20            = " + make_timefrac_s(get_percentile(samples, 20.0))
+print "P25            = " + make_timefrac_s(get_percentile(samples, 25.0))
+print "P30            = " + make_timefrac_s(get_percentile(samples, 30.0))
+print "P40            = " + make_timefrac_s(get_percentile(samples, 40.0))
+print "P50            = " + make_timefrac_s(get_percentile(samples, 50.0))
+print "P60            = " + make_timefrac_s(get_percentile(samples, 60.0))
+print "P70            = " + make_timefrac_s(get_percentile(samples, 70.0))
+print "P75            = " + make_timefrac_s(get_percentile(samples, 75.0))
+print "P80            = " + make_timefrac_s(get_percentile(samples, 80.0))
+print "P90            = " + make_timefrac_s(get_percentile(samples, 90.0))
+print "P95            = " + make_timefrac_s(get_percentile(samples, 95.0))
+print "P99            = " + make_timefrac_s(get_percentile(samples, 99.0))
+print "P100           = " + make_timefrac_s(get_percentile(samples, 100.0))
