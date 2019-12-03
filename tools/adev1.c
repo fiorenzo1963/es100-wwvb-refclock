@@ -1,5 +1,8 @@
 /*
- * This tool downloaded from http://www.leapsecond.com/tools/adev1.c
+ *
+ * This tool downloaded from http://www.leapsecond.com/tools/adev1.c.
+ *
+ * Tool Author: Tom Van Baak (http://www.leapsecond.com/tools), license unknown.
  *
  */
 
