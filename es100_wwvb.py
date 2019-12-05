@@ -34,7 +34,6 @@
 # FIXME: use monotonic clock to avoid current local time errors
 # TODO: general code cleanup
 # TODO: separate RX status from RX ANTENNA
-# TODO: Force full RX mode every few hours, or at least during night time.
 #
 
 import RPi.GPIO as GPIO
@@ -67,14 +66,17 @@ class es100_wwvb:
         GPIO_DEV_IRQ_PPS_DEVICE     = "pps0"    # name of pps device
         KILOMETERS_FROM_FTCOLLINS_CO= 1568      # great circle distance from Fort Collins, Colorado, kilometers
         #
-        # EXPERIMENTAL - use at your own risk. all of this is test code, but this is even more so
-        #
-        ALLOW_RX_TRACKING_MODE      = False
-        FORCE_RX_TRACKING_MODE      = False
-        #
         # from https://ieeexplore.ieee.org/document/1701081
         #
         SPEED_OF_LIGHT_OVERLAND     = 299250
+        #
+        # Force a full RX around 23:30 local time in Fort Collins, CO (16:30 UTC).
+        # This time is night over all lower 48 states.
+        # 23:30 Fort Collins = 16:30 UTC
+        #
+        NIGHT_TIME_RX_DAY_OFFSET_BEGIN = (16.5 * 3600)
+        NIGHT_TIME_RX_DAY_OFFSET_END   = (17.5 * 3600)
+        NIGHT_TIME_RX_DAY_LENGTH       = NIGHT_TIME_RX_DAY_OFFSET_END - NIGHT_TIME_RX_DAY_OFFSET_BEGIN
         #
         # Constants for EVERSET WWVB receiver copied from es100_host_arduino.c,
         # Xtendwave ES100 Example Host MCU Code for Arduino - version 0002.
@@ -192,6 +194,10 @@ class es100_wwvb:
                 # correctly.
                 #
                 self.force_full_rx = True
+                #
+                # last full rx
+                #
+                self.last_full_rx_tstamp = 0
                 print "__init__: done"
         def make_timespec_s(self, timestamp):
                 return "{0:09.09f}".format(timestamp)
@@ -217,6 +223,18 @@ class es100_wwvb:
                 secs = timestamp - uxday * 86400
                 mjday = MJD_1970 + uxday
                 return [ mjday, secs ]
+        #
+        # set full rx flag if
+        # (1) it's between 2330 and 0030 in Ft Collins
+        # (2) it is about 24 hours since last full rx.
+        #
+        def check_night_time_full_rx_ftcollins(self):
+                t = time.time()
+                mjd = self.time_to_mjd(t)
+                print "check_night_time_ftcollins: " + str(t) + ": day_offset=" + str(mjd[1]) + ", t-last_full_rx=" + str(t - self.last_full_rx_tstamp) + "/" + str(es100_wwvb.NIGHT_TIME_RX_DAY_LENGTH)
+                if mjd[1] >= es100_wwvb.NIGHT_TIME_RX_DAY_OFFSET_BEGIN and mjd[1] <= es100_wwvb.NIGHT_TIME_RX_DAY_OFFSET_END and t > (self.last_full_rx_tstamp + es100_wwvb.NIGHT_TIME_RX_DAY_LENGTH):
+                        print "check_night_time_ftcollins: set force_full_rx to True"
+                        self.force_full_rx = True
         def str0x(self, value):
                 return "0x{0:02x}".format(value)
         #
@@ -513,6 +531,8 @@ class es100_wwvb:
         #
         # read RX data from WWVB receiver
         #
+        # FIXME: this method is too complex, needs to be broken down
+        #
         def read_rx_wwvb_device(self, rx_params, rx_timestamp):
                 rx_ant = 0
                 #
@@ -639,8 +659,8 @@ class es100_wwvb:
                         minute_reg = self.decode_bcd_byte(self.read_wwvb_device(es100_wwvb.ES100_MINUTE_REG))
                         second_reg = self.decode_bcd_byte(self.read_wwvb_device(es100_wwvb.ES100_SECOND_REG))
                         #
-                        #
                         # FIXME: use a time format method instead of this
+                        #
                         wwvb_time = (
                                         year_reg,
                                         month_reg,
@@ -650,8 +670,21 @@ class es100_wwvb:
                                         second_reg,
                                         0, 0, 0
                                     )
-                        # FIXME: use a time format method instead of this
                         wwvb_time_secs = time.mktime(wwvb_time)
+
+                        wwvb_delta_rx = wwvb_time_secs - rx_timestamp
+                        if abs(wwvb_delta_rx) > 0.250:
+                                print "read_rx_wwvb_device: clock offset in full rx mode exceeds 250 ms, forcing full RX"
+                                self.disable_wwvb_device()
+                                self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_T_STAMP_OORANGE, rx_ant, rx_timestamp)
+                                # XXX: should already be true, set anyway
+                                self.force_full_rx = True
+                                return es100_wwvb.RX_STATUS_WWVB_T_STAMP_OORANGE
+
+                        self.force_full_rx = False
+                        self.last_full_rx_tstamp = rx_timestamp
+                        print "read_rx_wwvb_device: reset last_full_rx_tstamp to " + str(self.last_full_rx_tstamp) + ", force_full_rx to False"
+
                 wwvb_time_txt = self.make_utc_s(wwvb_time_secs)
                 #
                 # Timestamp pair:
@@ -683,14 +716,7 @@ class es100_wwvb:
                 print "read_rx_wwvb_device: WWVB_TIME       = " + wwvb_time_txt
                 print "read_rx_wwvb_device: RX              = " + self.make_timespec_s(rx_timestamp)
                 print "read_rx_wwvb_device: WWWB_DELTA_RX   = " + self.make_timespec_s(wwvb_delta_rx)
-                if abs(wwvb_delta_rx) <= 0.250:
-                        self.force_full_rx = False
-                else:
-                        #
-                        # FIXME: need to invalidate sample
-                        #
-                        print "read_rx_wwvb_device: clock offset in full rx mode exceeds 250 ms, forcing full RX"
-                        self.force_full_rx = True
+
                 # machine readable line for automated parsing and analysis
                 # no other text printed by this tool begins with RX_WWVB
                 # emit machine readable stat
@@ -745,6 +771,7 @@ class es100_wwvb:
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT1
         def rx_wwvb_select_antenna(self, rx_ret, rx_params):
                 rx_params = self.__rx_wwvb_select_antenna(rx_ret, rx_params)
+                self.check_night_time_full_rx_ftcollins()
                 if self.ALLOW_RX_TRACKING_MODE is True and self.force_full_rx is False:
                         if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
                                 print "rx_wwvb_select_antenna: tracking mode allowed and full rx not needed, switching to tracking mode on ANT1"
