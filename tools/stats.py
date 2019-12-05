@@ -18,7 +18,7 @@ median_threshold = float(sys.argv[3])
 
 print "         logfile = " + logfile
 print "   TIME_CONSTANT = " + str(TIME_CONSTANT)
-print "median_threshold = " + str(median_threshold)
+print "median_threshold = " + str(median_threshold) + " # NTP loop filter = reject (1 - median_threshold) samples"
 
 if median_threshold < 0.05 or median_threshold > 1.0:
         print "median threshold needs to be between 0.05 and 1.0"
@@ -56,8 +56,11 @@ def get_samples(data, curr_index, TIME_CONSTANT):
         while i >= 0 and data[i][0] + TIME_CONSTANT >= curr_timestamp:
                 samples.append(data[i][1])
                 i = i - 1
-        samples.sort()
-        return samples
+        oldest_timestamp = data[i][0]
+        if curr_timestamp - oldest_timestamp >= TIME_CONSTANT:
+                samples.sort()
+                return samples
+        return None
 
 def do_average(s):
         return sum(s, 0.0) / len(s)
@@ -108,19 +111,24 @@ min_avg = 86400.0
 max_avg = -86400.0
 min_median = 86400.0
 max_median = -86400.0
-median_array = [ ]
+median_values = [ ]
+median_values_min_sample_size = 1000000000
+median_values_max_sample_size = 0
+median_values_sum_sample_size = 0
 for i in range(0, len(valid_data) - 1):
         samples = get_samples(valid_data, i, TIME_CONSTANT)
+        if samples == None:
+                continue
         avg = do_average(samples)
         median = do_median_filter(samples)
         spaces = "      "
         s = "#" + str(i) + spaces
         s = s + make_timespec_s(valid_data[i][0]) + spaces
         s = s + make_timefrac_s(valid_data[i][1])
-        if is_daytime(valid_data[i][0]):
-                s = s + spaces + "  DAY"
-        else:
-                s = s + spaces + "NIGHT"
+        #####if is_daytime(valid_data[i][0]):
+        #####        s = s + spaces + "  DAY"
+        #####else:
+        #####        s = s + spaces + "NIGHT"
         s = s + spaces + "{0:4d}".format(len(samples))
         if valid_data[i][1] < min_sample:
                 min_sample = valid_data[i][1]
@@ -138,7 +146,13 @@ for i in range(0, len(valid_data) - 1):
                         min_median = median
                 if median > max_median:
                         max_median = median
-                median_array.append(median)
+                median_values.append(median)
+                if len(samples) < median_values_min_sample_size:
+                        median_values_min_sample_size = len(samples)
+                if len(samples) > median_values_max_sample_size:
+                        median_values_max_sample_size = len(samples)
+                median_values_sum_sample_size = median_values_sum_sample_size + float(len(samples)) + 0.0
+                s = s + spaces + "{0:4d}".format(len(samples))
         print s
 
 print ""
@@ -148,7 +162,10 @@ print ""
 print "total samples         = " + str(len(all_data))
 print "total valid samples   = " + str(len(valid_data))
 print "      valid samples   = " + "{0:.2f}%".format(100.0 * len(valid_data) / len(all_data))
+print "   filtered samples   = " + str(len(median_values))
+print "   filtered samples   = " + "{0:.2f}%".format(100.0 * len(median_values) / len(all_data))
 print ""
+print "general stats:"
 print "         min_sample   = " + make_timefrac_s(min_sample)
 print "         max_sample   = " + make_timefrac_s(max_sample)
 print "            min_avg   = " + make_timefrac_s(min_avg)
@@ -158,13 +175,17 @@ print "         max_median   = " + make_timefrac_s(max_median)
 print ""
 print ""
 
-median_array.sort()
-print "       median samples = " + str(len(median_array))
-if len(median_array) > 10:
-        print "           P05 median = " + make_timefrac_s(median_array[int(len(median_array) * 0.05)])
-        print "           P10 median = " + make_timefrac_s(median_array[int(len(median_array) * 0.10)])
-        print "           P25 median = " + make_timefrac_s(median_array[int(len(median_array) * 0.25)])
-        print "           P50 median = " + make_timefrac_s(median_array[int(len(median_array) * 0.50)])
-        print "           P75 median = " + make_timefrac_s(median_array[int(len(median_array) * 0.75)])
-        print "           P90 median = " + make_timefrac_s(median_array[int(len(median_array) * 0.90)])
-        print "           P95 median = " + make_timefrac_s(median_array[int(len(median_array) * 0.95)])
+median_values.sort()
+print "median stats:"
+print "       median samples = " + str(len(median_values))
+print "     min samples size = " + str(median_values_min_sample_size)
+print "     max samples size = " + str(median_values_max_sample_size)
+print "     avg samples size = " + str(median_values_sum_sample_size / len(median_values))
+if len(median_values) > 10:
+        print "           P05 median = " + make_timefrac_s(median_values[int(len(median_values) * 0.05)])
+        print "           P10 median = " + make_timefrac_s(median_values[int(len(median_values) * 0.10)])
+        print "           P25 median = " + make_timefrac_s(median_values[int(len(median_values) * 0.25)])
+        print "           P50 median = " + make_timefrac_s(median_values[int(len(median_values) * 0.50)])
+        print "           P75 median = " + make_timefrac_s(median_values[int(len(median_values) * 0.75)])
+        print "           P90 median = " + make_timefrac_s(median_values[int(len(median_values) * 0.90)])
+        print "           P95 median = " + make_timefrac_s(median_values[int(len(median_values) * 0.95)])
