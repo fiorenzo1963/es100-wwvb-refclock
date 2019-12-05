@@ -3,18 +3,15 @@ Python test code and Shared memory NTP reference clock for Everset es100 WWVB re
 
 ## Description
 
-NOTE **THIS DESCRIPTION APPLIES TO THIS BRANCH ONLY**
-NOTE **DEVELOPMENT BRANCH**
-
 This repository contains software to interface with Everset es100 WWVB receiver. This receiver is a dual-antenna software-defined radioclock which gets the timestamp code transmitted by NIST's WWVB 60 kHz radio station in Fort Collins, Colorado.
 
 The test code is written in Python for ease of use, developed and tested on Raspberry PI 3.
 
 The code is intended to run forever by a daemon, and keeps receiving data from WWVB.
-If the code is only run in intermittent mode, do not allow tracking mode.
+If the code is only run in intermittent mode, do not allow tracking mode when instantiating the class es100_wwvb.
 
+Theory of operation:
 It starts receiving from ANTENNA 1 by default, then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken with PPS api when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
-
 There are two RX modes, "normal mode" or "full mode" where a full UTC timestamp is received, and "tracking mode, where only the mark of a second is received, similar to a PPS mode. Full mode is required at the beginning regardless. If tracking mode is enabled, a successful full rx allows switching to tracking mode provided that the clock offset is within 250 milliseconds. tracking mode only works correctly if the local clock is very close to the actual time. if an rx timestamp in tracking mode exceeds an error of 250 milliseconds, we assume that the local clock has drifted too much, in which case we revert to full RX mode to make sure the time is correct.
 
 ![alt text](images/es100_with_dual_antennas.jpg)
