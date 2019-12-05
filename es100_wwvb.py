@@ -244,7 +244,7 @@ class es100_wwvb:
                         state_s = "high-to-low"
                 c = 0
                 warn = False
-                print "gpio_wait_state_change: wait for " + pin_name + " state change " + state_s
+                #print "gpio_wait_state_change: wait for " + pin_name + " state change " + state_s
                 # FIXME: need to timeout this loop
                 while GPIO.input(pin) == curr_state:
                         time.sleep(0.001)
@@ -273,7 +273,7 @@ class es100_wwvb:
                                 #
                                 # FIXME: need to handle this error
                                 #
-                                print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low"
+                                print "enable_wwvb_device: ERROR: GPIO_IRQ pin is high, but should be low --- doing deep disable"
                                 time.sleep(4.000)
                         GPIO.output(self.GPIO_DEV_ENABLE, GPIO.HIGH)
                 self.gpio_wait_state_change(self.GPIO_DEV_IRQ, "DEV_IRQ", 0)
@@ -505,6 +505,7 @@ class es100_wwvb:
         # read RX data from WWVB receiver
         #
         def read_rx_wwvb_device(self, rx_params, rx_timestamp):
+                rx_ant = 0
                 #
                 # read irq_status register first, per EVERSET timing diagrams
                 #
@@ -531,7 +532,6 @@ class es100_wwvb:
                 #
                 # get rx_ant first, then process irq_status before status0 register
                 #
-                rx_ant = 0
                 if (status0 & 0x2) != 0x0:
                         print "read_rx_wwvb_device: status0 reg: RX ANTENNA 2"
                         rx_ant = 2
@@ -545,12 +545,11 @@ class es100_wwvb:
                         print "read_rx_wwvb_device: irq_status reg = RX complete - OK"
                 else:
                         if (irq_status & 0x5) == 0x4:
-                                # FIXME: handle retry state. when retrying, irq_status is set to 0x4
+                                # NOTE: this code runs in tracking mode most of the time, so no need to let receiver retry a full rx.
                                 # control0 reg = 5
                                 # status0 reg = 0
                                 # irq_status reg = 4
-                                print "read_rx_wwvb_device: irq_status reg: RX cycle complete, but no data, receiver retrying - FAILED"
-                                print "read_rx_wwvb_device: FIXME: need to handle this case by waiting again"
+                                print "read_rx_wwvb_device: irq_status reg: RX cycle complete, but no data (receiver retrying) --- ERROR"
                                 self.disable_wwvb_device()
                                 self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_IRQ_CYCLE_COMPL, rx_ant, rx_timestamp)
                                 return es100_wwvb.RX_STATUS_WWVB_IRQ_CYCLE_COMPL
@@ -567,7 +566,7 @@ class es100_wwvb:
                 if (status0 & 0x5) == 0x1:
                         print "read_rx_wwvb_device: status0 reg: RX_OK: RX OK"
                 else:
-                        print "read_rx_wwvb_device: status0 reg: NO_RX: RX FAILED"
+                        print "read_rx_wwvb_device: status0 reg: NO_RX: RX FAILED --- ERROR"
                         self.disable_wwvb_device()
                         self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_STATUS0_NO_RX, rx_ant, rx_timestamp)
                         return es100_wwvb.RX_STATUS_WWVB_STATUS0_NO_RX
