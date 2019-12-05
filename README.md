@@ -10,17 +10,18 @@ This repository contains software to interface with Everset es100 WWVB receiver.
 
 The test code is written in Python for ease of use, developed and tested on Raspberry PI 3.
 
-The code which updates NTP SHM refclock is external. This is ugly and should be cleaned up.
+The code is intended to run forever by a daemon, and keeps receiving data from WWVB.
+If the code is only run in intermittent mode, do not allow tracking mode.
 
-The test code runs forever and keeps receiving data from WWVB. It starts with user supplied antenna (1, 2) then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is a PPS timestamp when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
+It starts receiving from ANTENNA 1 by default, then it keeps using the same antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the other antenna. The receive timestamp is taken with PPS api when GPIO_IRQ goes low, thus its accuracy does not depend on the I2C bus's baud rate.
 
-The receiver first starts by requesting a full RX (which provides PPS mark as well as UTC timestamp), then continue in tracking mode, which only provides timestamp information. Tracking mode is more robust and works for the most part of the day, at least according to current limited experience.
+There are two RX modes, "normal mode" or "full mode" where a full UTC timestamp is received, and "tracking mode, where only the mark of a second is received, similar to a PPS mode. Full mode is required at the beginning regardless. If tracking mode is enabled, a successful full rx allows switching to tracking mode provided that the clock offset is within 250 milliseconds. tracking mode only works correctly if the local clock is very close to the actual time. if an rx timestamp in tracking mode exceeds an error of 250 milliseconds, we assume that the local clock has drifted too much, in which case we revert to full RX mode to make sure the time is correct.
 
 ![alt text](images/es100_with_dual_antennas.jpg)
 
 ## Using NTP SHM reflock
 
-* Compile included update_shm_one_shot tool
+* Compile included update_shm_one_shot tool using "make"
 * Add this configuration to your /etc/ntp.conf
 ```
 #
@@ -30,7 +31,7 @@ server 127.127.28.13 mode 0 prefer
 fudge 127.127.28.13 refid WWVB
 ```
 * Restart ntp
-* Run test code in the background. Make sure you start the test code in the same directory where the tool resides (ugly, will fix)
+* Start refclock code in the background using "es100_wwvb_clockref.sh" script. Make sure you start the test code in the same directory where the tool resides (ugly, will fix)
 * After a few successful RX updates, the refclock should show as reachable. Example:
 ```
      remote           refid      st t when poll reach   delay   offset  jitter
@@ -43,7 +44,8 @@ fudge 127.127.28.13 refid WWVB
 
 ## TODO
 
-* See code comments for full FIXME list.
+* The current code only considers the current time, which can be very wrong at the beginning when the clock is not set. this works okay so long as NTP is initially set correctly.
+* Use monotonic clock to avoid current time errors
 * Using /sys/devices to read PPS timestamps is non-portable and needs to be fixed. Python ctypes is the magic word.
 * Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver. Python ctypes is the magic word.
 
@@ -169,9 +171,9 @@ RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299280.016940594,58808,4880.016940594,0
 RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299341.008145332,58808,4941.008145332,0,2019-11-21T01:22:21Z-T21-TRUNC,1574299341.005239725,-0.002905607
 RX_WWVB_CLOCKSTATS,v2,2,RX_OK_ANT2,2,1574299401.001959801,58808,5001.001959801,0,2019-11-21T01:23:21Z-T21-TRUNC,1574299401.005239725,0.003279924
 ```
-* To produce a file with a format suitable for standard displaying with gnuplot, use scripts/gnuplot-extract.sh:
+* To produce a file with a format suitable for standard displaying with gnuplot, use tools/gnuplot-extract.sh:
 ```
-pi@rasp-wwvb:~/GITHUB/es100-wwvb-refclock $ scripts/gnuplot-extract.sh es100-wwvb-test.log
+pi@rasp-wwvb:~/GITHUB/es100-wwvb-refclock $ tools/gnuplot-extract.sh es100-wwvb-test.log
 58808 3980.995705605 0.009534121
 58808 4040.039047241 -0.033807516
 58808 4100.974687099 0.030552626

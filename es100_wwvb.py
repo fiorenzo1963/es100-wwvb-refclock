@@ -11,13 +11,30 @@
 #
 # This code is released under dual GPL Version 2 / FreeBSD license, at your option.
 #
-# The test code runs forever and keeps receiving data from WWVB.
-# It starts with user supplied antenna configuration (1, 2), then it keeps using the same
+# The code is intended to run forever by a daemon, and keeps receiving data from WWVB.
+# If the code is only run in intermittent mode, do not allow tracking mode.
+#
+# It starts receiving from ANTENNA 1 by default, then it keeps using the same
 # antenna for as long as RX is successful. Upon RX timeout or RX error it switches to the
 # other antenna. The receive timestamp is taken with PPS api when GPIO_IRQ goes low, thus
 # its accuracy does not depend on the I2C bus's baud rate.
 #
+# There are two RX modes, "normal mode" or "full mode" where a full UTC timestamp is received,
+# and "tracking mode, where only the mark of a second is received, similar to a PPS mode.
+# Full mode is required at the beginning regardless.
+# If tracking mode is enabled, a successful full rx allows switching to tracking mode
+# provided that the clock offset is within 250 milliseconds.
+# tracking mode only works correctly if the local clock is very close to the actual time.
+# if an rx timestamp in tracking mode exceeds an error of 250 milliseconds,
+# we assume that the local clock has drifted too much, in which case we revert
+# to full RX mode to make sure the time is correct.
+# FIXME: the current code only considers the current local time, which can be very wrong
+# at the beginning when the clock is not set. this works okay so long as NTP is initially set
+# correctly.
+# FIXME: use monotonic clock to avoid current local time errors
+#
 # TODO: general code cleanup
+# TODO: separate RX status from RX ANTENNA
 #
 
 import RPi.GPIO as GPIO
@@ -162,6 +179,18 @@ class es100_wwvb:
                 #
                 self.force_rx_params = force_rx_params
                 self.next_rx_params = es100_wwvb.ES100_CONTROL_START_RX_ANT1
+                #
+                # this is set to true both at the beginning. a successful full rx sets this to false,
+                # provided that the clock offset is within 250 milliseconds.
+                # allowing the switch to tracking mode. tracking mode only works correctly if the local
+                # clock is very close to the actual time. if an rx timestamp in tracking mode exceeds
+                # an error of 250 milliseconds, we assume that the local clock has drifted too much, in
+                # which case we revert to full RX mode to make sure the time is correct.
+                # FIXME: the current code only considers the current local time, which can be very wrong
+                # at the beginning when the clock is not set. this works okay so long as NTP is initially set
+                # correctly.
+                #
+                self.force_full_rx = True
                 print "__init__: done"
         def make_timespec_s(self, timestamp):
                 return "{0:09.09f}".format(timestamp)
@@ -379,32 +408,29 @@ class es100_wwvb:
         #       rx_ret numerical form (one of the RX status codes above)
         #       rx_ret string form (one of the RX status codes above)
         #       rx_ant (1, 2 or 0 if unknown - latter only true in case of RX timeout)
-        #       rx_timestamp (unix timestamp with fractional portion)
-        #       wwvb_timestamp in ISO format - None if RX error
+        #       unix rx timestamp with fractional portion
+        #       MJD day
+        #       MJD day second offset rx timestamp with fractional portion
+        #       boolean which indicates whether full rx is forced
+        #       wwvb_timestamp in ISO format - None if RX error - note this string has also a suffix which indicates RX offset in tracking mode
         #       wwvb_time (unix timestamp) - None if RX error
         #       rx_delta (wwvb_timestamp - rx_timestamp) - None if RX error
+        #       rx_mode string (FULL,TRACKING) v3 only
         #
         # FIXME: make it part of es100_wwvb class
         #
-        def wwvb_emit_clockstats(self, rx_ret, rx_ant, rx_timestamp, wwvb_time_text = None, wwvb_time = None, wwvb_delta_rx = None):
+        def wwvb_emit_clockstats(self, rx_ret, rx_ant, rx_timestamp, wwvb_time_text = None, wwvb_time = None, wwvb_delta_rx = None, rx_mode = None):
                 # yikes, use better formatting technique
                 rx_s = str(rx_ret) + "," + es100_wwvb.RX_STATUS_WWVB_STR[rx_ret] + ","
                 rx_s = rx_s + str(rx_ant) + "," + self.make_timespec_s(rx_timestamp) + ","
                 mjd_timestamp = self.time_to_mjd(rx_timestamp)
                 rx_s = rx_s + str(mjd_timestamp[0]) + "," + self.make_timefrac_s(mjd_timestamp[1]) + ","
-                #
-                # FIXME: add last_rx_timestamp code when this is converted into a class.
-                # for now just emit a zero
-                #
-                # if last_rx_timestamp == 0.0:
-                #        rx_s = rx_s + "0" + ","
-                # else:
-                #        rx_s = rx_s + str(rx_timestamp - last_rx_timestamp) + ","
-                rx_s = rx_s + "0" + ","
+                rx_s = rx_s + str(self.force_full_rx) + ","
                 if wwvb_time_text is None:
                         wwvb_time_text = ""
                         wwvb_time_s = ""
                         wwvb_delta_rx_s = ""
+                        rx_mode = ""
                 else:
                         wwvb_time_s = self.make_timespec_s(wwvb_time)
                         wwvb_delta_rx_s = self.make_timespec_s(wwvb_delta_rx)
@@ -412,10 +438,8 @@ class es100_wwvb:
                 rx_s = rx_s + wwvb_time_s + ","
                 rx_s = rx_s + wwvb_delta_rx_s
                 # version 2 adds mjd day and second
-                # version 3 adds utc value for rx_timestamp - backward compat with version 2
-                print "RX_WWVB_CLOCKSTATS,v2," + rx_s
-                #print "RX_WWVB_CLOCKSTATS,v3," + rx_s + "," + self.make_utc_s_ns(rx_timestamp)
-                #last_rx_timestamp = rx_timestamp
+                # version 3 adds rx_mode - backward compat with version 2
+                print "RX_WWVB_CLOCKSTATS,v3," + rx_s
                 #
                 # emit stats
                 #
@@ -558,8 +582,8 @@ class es100_wwvb:
                         print "read_rx_wwvb_device: status0 reg: LEAP second flag indicator"
                 if (status0 & 0x60) != 0:
                         print "read_rx_wwvb_device: status0 reg: DST flags set"
-                wwvb_time_txt = ""
                 if (status0 & 0x80) != 0:
+                        rx_mode = "TRACKING"
                         #
                         # FIXME: make sure we actually requested tracking mode
                         # FIXME: need to weed out bad timestamps
@@ -575,31 +599,30 @@ class es100_wwvb:
                         print "read_rx_wwvb_device: rx_timestamp_frac = " + self.make_timespec_s(rx_timestamp_frac)
                         #
                         # when in tracking mode,
-                        # only accept timestamps which are within +/- 200 milliseconds from expected ts.
+                        # only accept timestamps which are within +/- 250 milliseconds from expected ts.
                         #
-                        if rx_timestamp_mod >= 19.8 and rx_timestamp_mod < 20.2:
+                        if rx_timestamp_mod >= 19.750 and rx_timestamp_mod < 20.250:
                                 if rx_timestamp_mod < 20:
                                         wwvb_time_secs = int(rx_timestamp + 1)
-                                        wwvb_time_txt = "-T20-ROUNDUP"
                                 else:
                                         wwvb_time_secs = int(rx_timestamp)
-                                        wwvb_time_txt = "-T20-TRUNC"
-                                print "read_rx_wwvb_device: accept timestamp for :20 second offset" + wwvb_time_txt
+                                print "read_rx_wwvb_device: accept timestamp for :20 second offset"
                         else:
-                                if rx_timestamp_mod >= 20.8 and rx_timestamp_mod < 21.2:
+                                if rx_timestamp_mod >= 20.750 and rx_timestamp_mod < 21.250:
                                         if rx_timestamp_mod < 21:
                                                 wwvb_time_secs = int(rx_timestamp + 1)
-                                                wwvb_time_txt = "-T21-ROUNDUP"
                                         else:
                                                 wwvb_time_secs = int(rx_timestamp)
-                                                wwvb_time_txt = "-T21-TRUNC"
-                                        print "read_rx_wwvb_device: accept timestamp for :21 second offset" + wwvb_time_txt
+                                        print "read_rx_wwvb_device: accept timestamp for :21 second offset"
                                 else:
                                         print "read_rx_wwvb_device: tracking sample offset out of range"
+                                        print "read_rx_wwvb_device: clock offset in tracking mode exceeds 250 ms, forcing full RX"
                                         self.disable_wwvb_device()
                                         self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_T_STAMP_OORANGE, rx_ant, rx_timestamp)
+                                        self.force_full_rx = True
                                         return es100_wwvb.RX_STATUS_WWVB_T_STAMP_OORANGE
                 else:
+                        rx_mode = "FULL"
                         print "read_rx_wwvb_device: status0 reg: processing normal RX mode"
                         year_reg = self.decode_bcd_byte(self.read_wwvb_device(es100_wwvb.ES100_YEAR_REG), offset = 2000)
                         month_reg = self.decode_bcd_byte(self.read_wwvb_device(es100_wwvb.ES100_MONTH_REG))
@@ -620,9 +643,8 @@ class es100_wwvb:
                                         0, 0, 0
                                     )
                         # FIXME: use a time format method instead of this
-                        wwvb_time_txt = ""
                         wwvb_time_secs = time.mktime(wwvb_time)
-                wwvb_time_txt = self.make_utc_s(wwvb_time_secs) + wwvb_time_txt
+                wwvb_time_txt = self.make_utc_s(wwvb_time_secs)
                 #
                 # Timestamp pair:
                 #       wwvb_time_secs  = wwvb_timestamp
@@ -653,10 +675,18 @@ class es100_wwvb:
                 print "read_rx_wwvb_device: WWVB_TIME       = " + wwvb_time_txt
                 print "read_rx_wwvb_device: RX              = " + self.make_timespec_s(rx_timestamp)
                 print "read_rx_wwvb_device: WWWB_DELTA_RX   = " + self.make_timespec_s(wwvb_delta_rx)
+                if abs(wwvb_delta_rx) <= 0.250:
+                        self.force_full_rx = False
+                else:
+                        #
+                        # FIXME: need to invalidate sample
+                        #
+                        print "read_rx_wwvb_device: clock offset in full rx mode exceeds 250 ms, forcing full RX"
+                        self.force_full_rx = True
                 # machine readable line for automated parsing and analysis
                 # no other text printed by this tool begins with RX_WWVB
                 # emit machine readable stat
-                self.wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_txt, wwvb_time_secs, wwvb_delta_rx)
+                self.wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_txt, wwvb_time_secs, wwvb_delta_rx, rx_mode)
                 #
                 # update NTP SHM segment.
                 # FIXME: forking external code is butt-ugly
@@ -682,15 +712,11 @@ class es100_wwvb:
                                 print "rx_wwvb_select_antenna: force_rx_params set to ANT2, using antenna ANT1 for next RX"
                                 return es100_wwvb.ES100_CONTROL_START_RX_ANT2
                 #
-                # XXX: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
-                # or asking for ANT2_ANT1 over ANT2.
-                #
-                #
                 # RX OK ANTENNA 1
                 #
                 if rx_ret == es100_wwvb.RX_STATUS_WWVB_RX_OK_ANT1:
-                        if self.ALLOW_RX_TRACKING_MODE is True:
-                                print "rx_wwvb_select_antenna: rx ok, using same antenna ANT1 for next RX in TRACKING MODE"
+                        if self.ALLOW_RX_TRACKING_MODE is True and self.force_full_rx is False:
+                                print "rx_wwvb_select_antenna: rx ok and tracking mode allowed, using same antenna ANT1 for next RX in TRACKING MODE"
                                 return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT1
                         print "rx_wwvb_select_antenna: rx ok, using same antenna ANT1 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT1
@@ -698,8 +724,8 @@ class es100_wwvb:
                 # RX OK ANTENNA 2
                 #
                 if rx_ret == es100_wwvb.RX_STATUS_WWVB_RX_OK_ANT2:
-                        if self.ALLOW_RX_TRACKING_MODE is True:
-                                print "rx_wwvb_select_antenna: rx ok, using same antenna ANT1 for next RX in TRACKING MODE"
+                        if self.ALLOW_RX_TRACKING_MODE is True and self.force_full_rx is False:
+                                print "rx_wwvb_select_antenna: rx ok and tracking mode allowed, using same antenna ANT1 for next RX in TRACKING MODE"
                                 return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT2
                         print "rx_wwvb_select_antenna: rx ok, using same antenna ANT2 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT2
