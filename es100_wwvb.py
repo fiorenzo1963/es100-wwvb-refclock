@@ -178,6 +178,7 @@ class es100_wwvb:
                 # rx params
                 #
                 self.force_rx_params = force_rx_params
+                print "__init__: self.force_rx_params = " + str(self.force_rx_params)
                 self.next_rx_params = es100_wwvb.ES100_CONTROL_START_RX_ANT1
                 #
                 # this is set to true both at the beginning. a successful full rx sets this to false,
@@ -216,6 +217,8 @@ class es100_wwvb:
                 secs = timestamp - uxday * 86400
                 mjday = MJD_1970 + uxday
                 return [ mjday, secs ]
+        def str0x(self, value):
+                return "0x{0:02x}".format(value)
         #
         # FIXME: need to handle IO errors
         #
@@ -242,23 +245,24 @@ class es100_wwvb:
                         curr_state = 1
                         new_state = 0
                         state_s = "high-to-low"
-                c = 0
+                t0 = time.time()
                 warn = False
                 #print "gpio_wait_state_change: wait for " + pin_name + " state change " + state_s
                 # FIXME: need to timeout this loop
                 while GPIO.input(pin) == curr_state:
                         time.sleep(0.001)
-                        c = c + 0.005
-                        if c >= 0.100 and warn is False:
-                                print "gpio_wait_state_change: WARNING: still waiting for state change after " + str(c) + " secs"
+                        t = time.time() - t0
+                        if t >= 0.100 and warn is False:
+                                print "gpio_wait_state_change: WARNING: still waiting for " + state_s + " state change after " + str(t) + " secs"
                                 warn = True
-                                if c >= 0.500 and timeout is True:
-                                        print "gpio_wait_state_change: ERROR: still waiting for state change after " + str(c) + " secs"
+                                if t >= 0.500 and timeout is True:
+                                        print "gpio_wait_state_change: ERROR: still waiting for " + state_s + " state change after " + str(t) + " secs"
                                         return curr_state
-                if c > 0:
-                        print "gpio_wait_state_change: state change for " + pin_name + " took " + str(c) + " secs"
-                if c >= 0.050:
-                        print "gpio_wait_state_change: WARNING: state change for " + pin_name + " took " + str(c) + " secs"
+                t = time.time() - t0
+                if t > 0.002:
+                        print "gpio_wait_state_change: NOTE: " + state_s + " state change for " + pin_name + " took " + str(t) + " secs"
+                if t >= 0.050:
+                        print "gpio_wait_state_change: WARNING: " + state_s + " state change for " + pin_name + " took " + str(t) + " secs"
                 return new_state
         #
         # FIXME: need to do substantial cleanup of this code
@@ -352,14 +356,14 @@ class es100_wwvb:
                 # not sure how to call an I2C read which does not specify a source address
                 #
                 es100_slave_addr_val = self.smbus.read_byte(es100_wwvb.ES100_SLAVE_ADDR)
-                print "init_wwvb_device: es100_slave_addr_val = " + str(es100_slave_addr_val)
+                print "init_wwvb_device: es100_slave_addr_val = " + self.str0x(es100_slave_addr_val)
                 if es100_slave_addr_val != es100_wwvb.ES100_SLAVE_ADDR_VAL:
                         print "init_wwvb_device: ERROR: invalid ES100 es100_slave_addr_val"
                         return -1
                 #
                 time.sleep(0.100)
                 val = self.read_wwvb_device(es100_wwvb.ES100_DEVICE_ID_REG)
-                print "init_wwvb_device: es100_device_id = " + str(val)
+                print "init_wwvb_device: es100_device_id = " + self.str0x(val)
                 if val != es100_wwvb.ES100_DEVICE_ID:
                         print "init_wwvb_device: ERROR: invalid ES100 device_id"
                         return -1
@@ -367,12 +371,12 @@ class es100_wwvb:
                 # don't check irq_status register, as it has side effects
                 #
                 val = self.read_wwvb_device(es100_wwvb.ES100_CONTROL0_REG)
-                print "init_wwvb_device: control0 reg = " + str(val)
+                print "init_wwvb_device: control0 reg = " + self.str0x(val)
                 if val != 0:
                         print "init_wwvb_device: ERROR: invalid control0 reg"
                         return -1
                 val = self.read_wwvb_device(es100_wwvb.ES100_STATUS0_REG)
-                print "init_wwvb_device: status0 reg = " + str(val)
+                print "init_wwvb_device: status0 reg = " + self.str0x(val)
                 if val != 0:
                         print "init_wwvb_device: ERROR: invalid status0 reg"
                         return -1
@@ -436,7 +440,7 @@ class es100_wwvb:
                         wwvb_delta_rx_s = self.make_timespec_s(wwvb_delta_rx)
                 rx_s = rx_s + wwvb_time_text + ","
                 rx_s = rx_s + wwvb_time_s + ","
-                rx_s = rx_s + wwvb_delta_rx_s ","
+                rx_s = rx_s + wwvb_delta_rx_s + ","
                 rx_s = rx_s + rx_mode
                 # version 2 adds mjd day and second
                 # version 3 adds rx_mode - backward compat with version 2
@@ -448,12 +452,16 @@ class es100_wwvb:
         #
         # initiate RX operation on WWVB device and return data
         #
-        def start_rx_wwvb_device(self, rx_params = ES100_CONTROL_START_RX_ANT1):
+        def start_rx_wwvb_device(self, rx_params):
                 # FIXME: check input rx_params
                 if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
-                        print "start_rx_wwvb_device: WWVB receive: starting RX on antenna 1 only"
+                        print "start_rx_wwvb_device: WWVB receive: starting RX on antenna ANT1"
                 if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT2:
-                        print "start_rx_wwvb_device: WWVB receive: starting RX on antenna 2 only"
+                        print "start_rx_wwvb_device: WWVB receive: starting RX on antenna ANT2"
+                if rx_params == es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT1:
+                        print "start_rx_wwvb_device: WWVB receive: starting TRACKING RX on antenna ANT1"
+                if rx_params == es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT2:
+                        print "start_rx_wwvb_device: WWVB receive: starting TRACKING RX on antenna ANT2"
                 self.write_wwvb_device(es100_wwvb.ES100_CONTROL0_REG, rx_params)
                 # rx_start_time = time.time()
                 # rx_start_offset = int(rx_start_time) % 60
@@ -488,7 +496,7 @@ class es100_wwvb:
                                 control0 = self.read_wwvb_device(es100_wwvb.ES100_CONTROL0_REG)
                                 status0 = self.read_wwvb_device(es100_wwvb.ES100_STATUS0_REG)
                                 gpio_irq_pin = GPIO.input(self.GPIO_DEV_IRQ)
-                                print "wait_rx_wwvb_device: TIMEOUT ERROR: status0=" + str(status0) + ", " + "irq_status=" + str(irq_status) + ": " + str(time.time() - rx_start_time)
+                                print "wait_rx_wwvb_device: TIMEOUT ERROR: status0=" + self.str0x(status0) + ", " + "irq_status=" + self.str0x(irq_status) + ": " + str(time.time() - rx_start_time)
                                 return -1
                         time.sleep(0.010)
                         #
@@ -513,9 +521,9 @@ class es100_wwvb:
                 irq_status = self.read_wwvb_device(es100_wwvb.ES100_IRQ_STATUS_REG)
                 control0 = self.read_wwvb_device(es100_wwvb.ES100_CONTROL0_REG)
                 status0 = self.read_wwvb_device(es100_wwvb.ES100_STATUS0_REG)
-                print "read_rx_wwvb_device: irq_status reg = " + str(irq_status)
-                print "read_rx_wwvb_device: control0 reg = " + str(control0)
-                print "read_rx_wwvb_device: status0 reg = " + str(status0)
+                print "read_rx_wwvb_device: irq_status reg = " + self.str0x(irq_status)
+                print "read_rx_wwvb_device: control0 reg = " + self.str0x(control0)
+                print "read_rx_wwvb_device: status0 reg = " + self.str0x(status0)
                 #
                 # the datasheet is unclear as to when the ES100 raises DEV_IRQ back,
                 # whether it's after reading IRQ status or IRQ status and datetime/dst registers.
@@ -700,44 +708,51 @@ class es100_wwvb:
                 # that's all folks!
                 #
                 return rx_ret
-        def rx_wwvb_select_antenna(self, rx_ret, rx_params):
+        def __rx_wwvb_select_antenna(self, rx_ret, rx_params):
+                #
+                # CHECK FORCE RX
+                #
                 if self.force_rx_params != 0:
                         if self.force_rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
-                                print "rx_wwvb_select_antenna: force_rx_params set to ANT1, using antenna ANT1 for next RX"
+                                print "__rx_wwvb_select_antenna: force_rx_params set to ANT1, using antenna ANT1 for next RX"
                                 return es100_wwvb.ES100_CONTROL_START_RX_ANT1
                         else:
                                 #
                                 # silently ignore invalid self.force_rx_params
                                 #
-                                print "rx_wwvb_select_antenna: force_rx_params set to ANT2, using antenna ANT1 for next RX"
+                                print "__rx_wwvb_select_antenna: force_rx_params set to ANT2, using antenna ANT2 for next RX"
                                 return es100_wwvb.ES100_CONTROL_START_RX_ANT2
                 #
                 # RX OK ANTENNA 1
                 #
                 if rx_ret == es100_wwvb.RX_STATUS_WWVB_RX_OK_ANT1:
-                        if self.ALLOW_RX_TRACKING_MODE is True and self.force_full_rx is False:
-                                print "rx_wwvb_select_antenna: rx ok and tracking mode allowed, using same antenna ANT1 for next RX in TRACKING MODE"
-                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT1
-                        print "rx_wwvb_select_antenna: rx ok, using same antenna ANT1 for next RX"
+                        print "__rx_wwvb_select_antenna: rx ok, using same antenna ANT1 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT1
                 #
                 # RX OK ANTENNA 2
                 #
                 if rx_ret == es100_wwvb.RX_STATUS_WWVB_RX_OK_ANT2:
-                        if self.ALLOW_RX_TRACKING_MODE is True and self.force_full_rx is False:
-                                print "rx_wwvb_select_antenna: rx ok and tracking mode allowed, using same antenna ANT1 for next RX in TRACKING MODE"
-                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT2
-                        print "rx_wwvb_select_antenna: rx ok, using same antenna ANT2 for next RX"
+                        print "__rx_wwvb_select_antenna: rx ok, using same antenna ANT2 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT2
                 #
                 # RX FAILED
                 #
                 if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
-                        print "rx_wwvb_select_antenna: RX FAILED on antenna ANT1: using antenna ANT2 for next RX"
+                        print "__rx_wwvb_select_antenna: RX FAILED on antenna ANT1: using antenna ANT2 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT2
                 else:
-                        print "rx_wwvb_select_antenna: RX FAILED on antenna ANT2: using antenna ANT1 for next RX"
+                        print "__rx_wwvb_select_antenna: RX FAILED on antenna ANT2: using antenna ANT1 for next RX"
                         return es100_wwvb.ES100_CONTROL_START_RX_ANT1
+        def rx_wwvb_select_antenna(self, rx_ret, rx_params):
+                rx_params = self.__rx_wwvb_select_antenna(rx_ret, rx_params)
+                if self.ALLOW_RX_TRACKING_MODE is True and self.force_full_rx is False:
+                        if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
+                                print "rx_wwvb_select_antenna: tracking mode allowed and full rx not needed, switching to tracking mode on ANT1"
+                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT1
+                        else:
+                                print "rx_wwvb_select_antenna: tracking mode allowed and full rx not needed, switching to tracking mode on ANT2"
+                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT2
+                return rx_params
         #
         # main entry point - read rx timestamp from wwvb
         #
@@ -757,7 +772,7 @@ class es100_wwvb:
                 #
                 #
                 #
-                print "get_timestamp_from_wwvb_device: rx_params = " + str(rx_params)
+                print "get_timestamp_from_wwvb_device: rx_params = " + self.str0x(rx_params)
                 if (rx_params & es100_wwvb.ES100_CONTROL_START_TRACKING_RX_FLAG) != 0:
                         print "get_timestamp_from_wwvb_device: tracking mode requested, waiting until :54 before issuing command"
                         while (time.time() % 60) < 54:
