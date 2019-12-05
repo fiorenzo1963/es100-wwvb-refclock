@@ -4,11 +4,6 @@ import os
 import sys
 import time
 
-#
-# XXX: time_constant is a bad name for it, as TAU is not fixed for WWVB rx,
-# although it can be very closely approximated to 1 sample = 1 minute when RX is okay
-#
-
 if len(sys.argv) != 4:
         print sys.argv[0] + ": usage: " + sys.argv[0] + " logfile time_constant median_threshold"
         exit(1)
@@ -167,7 +162,7 @@ print "   filtered samples   = " + str(len(median_values))
 print "   filtered samples   = " + "{0:.2f}%".format(100.0 * len(median_values) / len(all_data))
 timestamp_range = all_data[len(all_data) - 1][0] - all_data[0][0]
 print " first to last sample = " + str(timestamp_range) + " seconds"
-print "          average TAU = " + str(timestamp_range / len(all_data)) + " seconds"
+print "       average period = " + str(timestamp_range / len(all_data)) + " seconds"
 print ""
 print ""
 print "general stats:"
