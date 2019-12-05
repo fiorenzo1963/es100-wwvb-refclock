@@ -436,7 +436,8 @@ class es100_wwvb:
                         wwvb_delta_rx_s = self.make_timespec_s(wwvb_delta_rx)
                 rx_s = rx_s + wwvb_time_text + ","
                 rx_s = rx_s + wwvb_time_s + ","
-                rx_s = rx_s + wwvb_delta_rx_s
+                rx_s = rx_s + wwvb_delta_rx_s ","
+                rx_s = rx_s + rx_mode
                 # version 2 adds mjd day and second
                 # version 3 adds rx_mode - backward compat with version 2
                 print "RX_WWVB_CLOCKSTATS,v3," + rx_s
