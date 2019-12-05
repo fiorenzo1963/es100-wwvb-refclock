@@ -133,11 +133,9 @@ class es100_wwvb:
                         "IRQ_STATUS_LOW",
                         "T_STAMP_OORANGE"
         )
-        def __init__(self, allow_tracking_mode = False, force_tracking_mode = False):
+        def __init__(self, allow_tracking_mode = False, force_rx_params = 0):
                 self.ALLOW_RX_TRACKING_MODE = allow_tracking_mode
-                self.FORCE_RX_TRACKING_MODE = force_tracking_mode
                 print "__init__: self.ALLOW_RX_TRACKING_MODE = " + str(self.ALLOW_RX_TRACKING_MODE)
-                print "__init__: self.FORCE_RX_TRACKING_MODE = " + str(self.FORCE_RX_TRACKING_MODE)
                 GPIO.setwarnings(False)
                 print "__init__: opening i2c bus channel = " + str(es100_wwvb.I2C_DEV_CHANNEL)
                 self.smbus = smbus.SMBus(es100_wwvb.I2C_DEV_CHANNEL)
@@ -154,6 +152,16 @@ class es100_wwvb:
                 # get pps device
                 #
                 self.pps = ppsapi(self.GPIO_DEV_IRQ_PPS_DEVICE, ppsapi.PPS_CAPTURECLEAR)
+                #
+                # stats
+                #
+                self.rx_stats = [ 0 ] * (es100_wwvb.RX_STATUS_WWVB_MAX_STATUS + 1)
+                self.rx_stats_count = 0
+                #
+                # rx params
+                #
+                self.force_rx_params = force_rx_params
+                self.next_rx_params = es100_wwvb.ES100_CONTROL_START_RX_ANT1
                 print "__init__: done"
         def make_timespec_s(self, timestamp):
                 return "{0:09.09f}".format(timestamp)
@@ -347,6 +355,23 @@ class es100_wwvb:
                 print "init_wwvb_device: done initializing ES100 WWVB receiver"
                 return 0
         #
+        # emit machine readable rx stats line
+        #
+        def wwvb_emit_rx_stats(self, rx_ret):
+                self.rx_stats_count = self.rx_stats_count + 1
+                self.rx_stats[rx_ret] = self.rx_stats[rx_ret] + 1
+                rx_total = 0
+                rx_s = ""
+                for i in range(es100_wwvb.RX_STATUS_WWVB_MIN_STATUS, es100_wwvb.RX_STATUS_WWVB_MAX_STATUS):
+                        rx_total = rx_total + self.rx_stats[i]
+                        if rx_s != "":
+                                rx_s = rx_s + ","
+                        rx_s = rx_s + str(self.rx_stats[i])
+                #
+                # version 1
+                #
+                print "RX_WWVB_STAT_COUNTERS,v1," + str(self.rx_stats_count) + "," + str(rx_total) + "," + rx_s
+        #
         # machine readable line for automated parsing and analysis
         # no other text printed by this tool begins with RX_WWVB_STAT
         #
@@ -391,6 +416,10 @@ class es100_wwvb:
                 print "RX_WWVB_CLOCKSTATS,v2," + rx_s
                 #print "RX_WWVB_CLOCKSTATS,v3," + rx_s + "," + self.make_utc_s_ns(rx_timestamp)
                 #last_rx_timestamp = rx_timestamp
+                #
+                # emit stats
+                #
+                self.wwvb_emit_rx_stats(rx_ret)
         #
         # initiate RX operation on WWVB device and return data
         #
@@ -511,7 +540,6 @@ class es100_wwvb:
                         self.disable_wwvb_device()
                         self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_STATUS0_RSVD, rx_ant, rx_timestamp)
                         return es100_wwvb.RX_STATUS_WWVB_STATUS0_RSVD
-                status0_patch = ""
                 if (status0 & 0x5) == 0x1:
                         print "read_rx_wwvb_device: status0 reg: RX_OK: RX OK"
                 else:
@@ -546,38 +574,25 @@ class es100_wwvb:
                         print "read_rx_wwvb_device: rx_timestamp_mod = " + self.make_timespec_s(rx_timestamp_mod)
                         print "read_rx_wwvb_device: rx_timestamp_frac = " + self.make_timespec_s(rx_timestamp_frac)
                         #
-                        #if rx_timestamp_frac >= 0.70:
-                        #        # round up and truncate
-                        #        wwvb_time_secs = int(rx_timestamp + 1)
-                        #        wwvb_time_txt = "UT-" + str(wwvb_time_secs % 60) + "-TK" + status0_patch
-                        #        print "read_rx_wwvb_device: wwvb_time_secs(up_truncate) = " + str(wwvb_time_secs)
-                        #else:
-                        #        #
-                        #        # FIXME: need to weed out bad timestamps
-                        #        #
-                        #        wwvb_time_secs = int(rx_timestamp)
-                        #        wwvb_time_txt = "T-" + str(wwvb_time_secs % 60) + "-TK" + status0_patch
-                        #        print "read_rx_wwvb_device: wwvb_time_secs(truncate) = " + str(wwvb_time_secs)
-                        #
                         # when in tracking mode,
                         # only accept timestamps which are within +/- 200 milliseconds from expected ts.
                         #
                         if rx_timestamp_mod >= 19.8 and rx_timestamp_mod < 20.2:
                                 if rx_timestamp_mod < 20:
                                         wwvb_time_secs = int(rx_timestamp + 1)
-                                        wwvb_time_txt = "-T20-ROUNDUP" + status0_patch
+                                        wwvb_time_txt = "-T20-ROUNDUP"
                                 else:
                                         wwvb_time_secs = int(rx_timestamp)
-                                        wwvb_time_txt = "-T20-TRUNC" + status0_patch
+                                        wwvb_time_txt = "-T20-TRUNC"
                                 print "read_rx_wwvb_device: accept timestamp for :20 second offset" + wwvb_time_txt
                         else:
                                 if rx_timestamp_mod >= 20.8 and rx_timestamp_mod < 21.2:
                                         if rx_timestamp_mod < 21:
                                                 wwvb_time_secs = int(rx_timestamp + 1)
-                                                wwvb_time_txt = "-T21-ROUNDUP" + status0_patch
+                                                wwvb_time_txt = "-T21-ROUNDUP"
                                         else:
                                                 wwvb_time_secs = int(rx_timestamp)
-                                                wwvb_time_txt = "-T21-TRUNC" + status0_patch
+                                                wwvb_time_txt = "-T21-TRUNC"
                                         print "read_rx_wwvb_device: accept timestamp for :21 second offset" + wwvb_time_txt
                                 else:
                                         print "read_rx_wwvb_device: tracking sample offset out of range"
@@ -655,10 +670,53 @@ class es100_wwvb:
                 # that's all folks!
                 #
                 return rx_ret
+        def rx_wwvb_select_antenna(self, rx_ret, rx_params):
+                if self.force_rx_params != 0:
+                        if self.force_rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
+                                print "rx_wwvb_select_antenna: force_rx_params set to ANT1, using antenna ANT1 for next RX"
+                                return es100_wwvb.ES100_CONTROL_START_RX_ANT1
+                        else:
+                                #
+                                # silently ignore invalid self.force_rx_params
+                                #
+                                print "rx_wwvb_select_antenna: force_rx_params set to ANT2, using antenna ANT1 for next RX"
+                                return es100_wwvb.ES100_CONTROL_START_RX_ANT2
+                #
+                # XXX: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
+                # or asking for ANT2_ANT1 over ANT2.
+                #
+                #
+                # RX OK ANTENNA 1
+                #
+                if rx_ret == es100_wwvb.RX_STATUS_WWVB_RX_OK_ANT1:
+                        if self.ALLOW_RX_TRACKING_MODE is True:
+                                print "rx_wwvb_select_antenna: rx ok, using same antenna ANT1 for next RX in TRACKING MODE"
+                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT1
+                        print "rx_wwvb_select_antenna: rx ok, using same antenna ANT1 for next RX"
+                        return es100_wwvb.ES100_CONTROL_START_RX_ANT1
+                #
+                # RX OK ANTENNA 2
+                #
+                if rx_ret == es100_wwvb.RX_STATUS_WWVB_RX_OK_ANT2:
+                        if self.ALLOW_RX_TRACKING_MODE is True:
+                                print "rx_wwvb_select_antenna: rx ok, using same antenna ANT1 for next RX in TRACKING MODE"
+                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT2
+                        print "rx_wwvb_select_antenna: rx ok, using same antenna ANT2 for next RX"
+                        return es100_wwvb.ES100_CONTROL_START_RX_ANT2
+                #
+                # RX FAILED
+                #
+                if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
+                        print "rx_wwvb_select_antenna: RX FAILED on antenna ANT1: using antenna ANT2 for next RX"
+                        return es100_wwvb.ES100_CONTROL_START_RX_ANT2
+                else:
+                        print "rx_wwvb_select_antenna: RX FAILED on antenna ANT2: using antenna ANT1 for next RX"
+                        return es100_wwvb.ES100_CONTROL_START_RX_ANT1
         #
         # main entry point - read rx timestamp from wwvb
         #
-        def get_timestamp_from_wwvb_device(self, rx_params):
+        def get_timestamp_from_wwvb_device(self):
+                rx_params = self.next_rx_params
                 #
                 # INITIALIZE EVERSET WWVB RECEIVER
                 #
@@ -667,6 +725,7 @@ class es100_wwvb:
                         print "get_timestamp_from_wwvb_device: ERROR: failed to initialize ES100 device"
                         self.disable_wwvb_device(deep_disable = True)
                         self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_DEV_INIT_FAILED, 0, time.time())
+                        self.next_rx_params = self.rx_wwvb_select_antenna(es100_wwvb.RX_STATUS_WWVB_DEV_INIT_FAILED, rx_params)
                         return es100_wwvb.RX_STATUS_WWVB_DEV_INIT_FAILED
                 prev_pps_stamp = self.pps.time_pps_fetch()['clear']
                 #
@@ -690,6 +749,7 @@ class es100_wwvb:
                         print "get_timestamp_from_wwvb_device: rx operation timeout at " + str(time.time())
                         self.disable_wwvb_device()
                         self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_TIMEOUT, 0, time.time())
+                        self.next_rx_params = self.rx_wwvb_select_antenna(es100_wwvb.RX_STATUS_WWVB_TIMEOUT, rx_params)
                         return es100_wwvb.RX_STATUS_WWVB_TIMEOUT
                 #
                 # RX COMPLETE, READ DATETIME TIMESTAMP FROM EVERSET WWVB RECEIVER
@@ -697,58 +757,10 @@ class es100_wwvb:
                 print "get_timestamp_from_wwvb_device: rx operation complete: " + self.make_timespec_s(rx_timestamp)
                 print "get_timestamp_from_wwvb_device: rx operation complete: " + str(rx_timestamp % 60) + " (minute offset)"
                 rx_ret = self.read_rx_wwvb_device(rx_params, rx_timestamp)
-                print "get_timestamp_from_wwvb_device: LOONEY TUNES -- THAT'S ALL FOLKS!"
-                #
-                # that's all folks!
-                #
                 self.disable_wwvb_device()
+                #
+                # read_rx_wwvb_device() already calls wwvb_emits_clockstats()
+                # self.wwvb_emit_clockstats(rx_ret, 0, rx_timestamp)
+                #
+                self.next_rx_params = self.rx_wwvb_select_antenna(rx_ret, rx_params)
                 return rx_ret
-        def rx_wwvb_select_antenna(self, rx_ret, rx_params):
-                #
-                # set rx_params for next rx based on current ok_rx
-                # XXX: there seems to be no advantage in asking for ANT1_ANT2 over ANT1
-                # or asking for ANT2_ANT1 over ANT2. maybe once we allow WWVB device to continue retry, it will.
-                #
-                #
-                # FIXME: this is a bad place to decide whether to use tracking mode or not
-                # FIXME: only use tracking mode is last known good RX was within 0.5 seconds from WWVB timestamp
-                #
-                #
-                if rx_ret == es100_wwvb.RX_STATUS_WWVB_RX_OK_ANT1:
-                        if self.ALLOW_RX_TRACKING_MODE is True:
-                                print "rx_wwvb_select_antenna: RX OK: using same antenna ANT1 for next RX in TRACKING MODE"
-                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT1
-                        print "rx_wwvb_select_antenna: RX OK: using same antenna ANT1 for next RX"
-                        return es100_wwvb.ES100_CONTROL_START_RX_ANT1
-                if rx_ret == es100_wwvb.RX_STATUS_WWVB_RX_OK_ANT2:
-                        if self.ALLOW_RX_TRACKING_MODE is True:
-                                print "rx_wwvb_select_antenna: RX OK: using same antenna ANT1 for next RX in TRACKING MODE"
-                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT2
-                        print "rx_wwvb_select_antenna: RX OK: using same antenna ANT2 for next RX"
-                        return es100_wwvb.ES100_CONTROL_START_RX_ANT2
-                if rx_params == es100_wwvb.ES100_CONTROL_START_RX_ANT1:
-                        if self.FORCE_RX_TRACKING_MODE is True:
-                                print "rx_wwvb_select_antenna: RX FAILED on antenna ANT1: using antenna ANT2 for next RX in TRACKING MODE (FORCE)"
-                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT2
-                        print "rx_wwvb_select_antenna: RX FAILED on antenna ANT1: using antenna ANT2 for next RX"
-                        return es100_wwvb.ES100_CONTROL_START_RX_ANT2
-                else:
-                        if self.FORCE_RX_TRACKING_MODE is True:
-                                print "rx_wwvb_select_antenna: RX FAILED on antenna ANT2: using antenna ANT1 for next RX in TRACKING MODE (FORCE)"
-                                return es100_wwvb.ES100_CONTROL_START_TRACKING_RX_ANT1
-                        print "rx_wwvb_select_antenna: RX FAILED on antenna ANT2: using antenna ANT1 for next RX"
-                        return es100_wwvb.ES100_CONTROL_START_RX_ANT1
-        #
-        # emit machine readable rx stats line
-        #
-        def wwvb_emit_rx_stats(self, rx_loop, rx_stats):
-                rx_total = 0
-                rx_s = ""
-                for i in range(es100_wwvb.RX_STATUS_WWVB_MIN_STATUS, es100_wwvb.RX_STATUS_WWVB_MAX_STATUS):
-                        rx_total = rx_total + rx_stats[i]
-                        if rx_s != "":
-                                rx_s = rx_s + ","
-                        rx_s = rx_s + str(rx_stats[i])
-                #
-                # version 1
-                print "RX_WWVB_STAT_COUNTERS,v1," + str(rx_loop) + "," + str(rx_total) + "," + rx_s

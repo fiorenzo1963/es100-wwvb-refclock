@@ -159,11 +159,16 @@ print ""
 print "         logfile = " + logfile
 print "   TIME_CONSTANT = " + str(TIME_CONSTANT)
 print ""
+print ""
 print "total samples         = " + str(len(all_data))
 print "total valid samples   = " + str(len(valid_data))
 print "      valid samples   = " + "{0:.2f}%".format(100.0 * len(valid_data) / len(all_data))
 print "   filtered samples   = " + str(len(median_values))
 print "   filtered samples   = " + "{0:.2f}%".format(100.0 * len(median_values) / len(all_data))
+timestamp_range = all_data[len(all_data) - 1][0] - all_data[0][0]
+print " first to last sample = " + str(timestamp_range) + " seconds"
+print "          average TAU = " + str(timestamp_range / len(all_data)) + " seconds"
+print ""
 print ""
 print "general stats:"
 print "         min_sample   = " + make_timefrac_s(min_sample)
