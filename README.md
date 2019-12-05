@@ -42,9 +42,10 @@ fudge 127.127.28.13 refid WWVB
 ## TODO
 
 * The current code only considers the current time, which can be very wrong at the beginning when the clock is not set. this works okay so long as NTP is initially set correctly.
-* Use monotonic clock to avoid current time errors
+* Force full RX mode every few hours, or at least during night time.
+* Use monotonic clock to avoid current time errors.
 * Using /sys/devices to read PPS timestamps is non-portable and needs to be fixed. Python ctypes is the magic word.
-* Cleanup code, split logic into WWVB ES100 library, test code and NTP SHM refclock driver. Python ctypes is the magic word.
+* Cleanup code.
 
 ## CHANGELOG
 

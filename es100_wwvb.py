@@ -32,9 +32,9 @@
 # at the beginning when the clock is not set. this works okay so long as NTP is initially set
 # correctly.
 # FIXME: use monotonic clock to avoid current local time errors
-#
 # TODO: general code cleanup
 # TODO: separate RX status from RX ANTENNA
+# TODO: Force full RX mode every few hours, or at least during night time.
 #
 
 import RPi.GPIO as GPIO
