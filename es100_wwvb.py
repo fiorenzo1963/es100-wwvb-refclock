@@ -681,10 +681,6 @@ class es100_wwvb:
                                 self.force_full_rx = True
                                 return es100_wwvb.RX_STATUS_WWVB_T_STAMP_OORANGE
 
-                        self.force_full_rx = False
-                        self.last_full_rx_tstamp = rx_timestamp
-                        print "read_rx_wwvb_device: reset last_full_rx_tstamp to " + str(self.last_full_rx_tstamp) + ", force_full_rx to False"
-
                 wwvb_time_txt = self.make_utc_s(wwvb_time_secs)
                 #
                 # Timestamp pair:
@@ -721,6 +717,11 @@ class es100_wwvb:
                 # no other text printed by this tool begins with RX_WWVB
                 # emit machine readable stat
                 self.wwvb_emit_clockstats(rx_ret, rx_ant, rx_timestamp, wwvb_time_txt, wwvb_time_secs, wwvb_delta_rx, rx_mode)
+
+                if self.force_full_rx is True:
+                        self.force_full_rx = False
+                        self.last_full_rx_tstamp = rx_timestamp
+                        print "read_rx_wwvb_device: reset last_full_rx_tstamp to " + str(self.last_full_rx_tstamp) + ", force_full_rx to False"
                 #
                 # update NTP SHM segment.
                 # FIXME: forking external code is butt-ugly
