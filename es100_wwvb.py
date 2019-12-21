@@ -673,13 +673,9 @@ class es100_wwvb:
                         wwvb_time_secs = time.mktime(wwvb_time)
 
                         wwvb_delta_rx = wwvb_time_secs - rx_timestamp
-                        if abs(wwvb_delta_rx) > 0.250:
-                                print "read_rx_wwvb_device: clock offset in full rx mode exceeds 250 ms, forcing full RX"
-                                self.disable_wwvb_device()
-                                self.wwvb_emit_clockstats(es100_wwvb.RX_STATUS_WWVB_T_STAMP_OORANGE, rx_ant, rx_timestamp)
-                                # XXX: should already be true, set anyway
+                        if abs(wwvb_delta_rx) > 0.200:
+                                print "read_rx_wwvb_device: clock offset in full rx mode exceeds 200 ms, forcing full RX"
                                 self.force_full_rx = True
-                                return es100_wwvb.RX_STATUS_WWVB_T_STAMP_OORANGE
 
                 wwvb_time_txt = self.make_utc_s(wwvb_time_secs)
                 #
