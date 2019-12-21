@@ -673,6 +673,9 @@ class es100_wwvb:
                         wwvb_time_secs = time.mktime(wwvb_time)
 
                         wwvb_delta_rx = wwvb_time_secs - rx_timestamp
+                        #
+                        # FIXME: add this forcing after the code below which resets force full rx
+                        #
                         if abs(wwvb_delta_rx) > 0.200:
                                 print "read_rx_wwvb_device: clock offset in full rx mode exceeds 200 ms, forcing full RX"
                                 self.force_full_rx = True
