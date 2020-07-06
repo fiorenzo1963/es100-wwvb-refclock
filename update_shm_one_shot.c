@@ -103,6 +103,18 @@ void update_shm(const struct timespec *pps_ts, const struct timespec *local_ts)
 	printf("update_shm_one_shot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
 }
 
+void show_shm(void)
+{
+	struct shm_time *shm = get_shmseg();
+
+	printf("update_shm_ones_hot: shm->valid = %d, shm->count = %d, shm->nsamples = %d\n", shm->valid, shm->count, shm->nsamples);
+	printf("update_shm_ones_hot: shm->clock_timestamp = %ld.%06ld, shm->receive_timestamp = %ld.%06ld\n",
+		shm->clock_timestamp_sec,
+		shm->clock_timestamp_usec,
+		shm->receive_timestamp_sec,
+		shm->receive_timestamp_usec);
+}
+
 int main(int argc, char **argv)
 {
 	struct timespec pps_timestamp, local_timestamp;
@@ -114,9 +126,14 @@ int main(int argc, char **argv)
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
-	if (argc != 3) {
-		printf("update_shm_one_shot: usage: update_shm_one_shot pps-timestamp local-timestamp\n");
+	if (argc != 1 && argc != 3) {
+		printf("update_shm_one_shot: usage: update_shm_one_shot [ pps-timestamp local-timestamp ]\n");
 		exit(1);
+	}
+
+	if (argc == 1) {
+		show_shm();
+		exit(0);
 	}
 
 	cnt = sscanf(argv[1], "%ld.%09ld", &pps_timestamp_tv_sec, &pps_timestamp_tv_nsec);
